@@ -102,40 +102,35 @@ export function slugify(value: string): string {
 
 // ─── Markdown Document Operations ────────────────────────────────────
 
-function extractHistorySection(document: string): string {
-  const marker = '## Q&A history\n\n';
-  const index = document.indexOf(marker);
-  return index >= 0 ? document.slice(index + marker.length).trim() : '';
-}
+function extractAnswersFromDocument(document: string): Array<{ question: string; answer: string }> {
+  const pairs: Array<{ question: string; answer: string }> = [];
+  const lines = document.split('\n');
+  let currentQuestion: string | null = null;
 
-export function extractSummarySection(document: string): string {
-  const marker = '## Current spec\n\n';
-  const historyMarker = '\n\n## Q&A history';
-  const start = document.indexOf(marker);
-  if (start < 0) {
-    return '';
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('Q: ')) {
+      currentQuestion = trimmed.slice(3);
+    } else if (trimmed.startsWith('A: ') && currentQuestion) {
+      pairs.push({
+        question: currentQuestion,
+        answer: trimmed.slice(3),
+      });
+      currentQuestion = null;
+    }
   }
-  const summaryStart = start + marker.length;
-  const summaryEnd = document.indexOf(historyMarker, summaryStart);
-  return document
-    .slice(summaryStart, summaryEnd >= 0 ? summaryEnd : undefined)
-    .trim();
+
+  return pairs;
 }
 
-export function extractTitle(document: string): string {
-  const match = document.match(/^#\s+(.+)$/m);
-  return match?.[1]?.trim() ?? '';
-}
+
 
 export function buildInterviewDocument(
   idea: string,
-  summary: string,
-  history: string,
+  questions: InterviewQuestion[],
+  answers: Array<{ questionId: string; answer: string }>,
   meta?: { sessionID?: string; baseMessageCount?: number },
 ): string {
-  const normalizedSummary = summary.trim() || 'Waiting for interview answers.';
-  const normalizedHistory = history.trim() || 'No answers yet.';
-
   const frontmatter = meta?.sessionID
     ? [
         '---',
@@ -147,18 +142,23 @@ export function buildInterviewDocument(
       ].join('\n')
     : '';
 
+  const qaLines: string[] = [];
+  for (const answer of answers) {
+    const question = questions.find((q) => q.id === answer.questionId);
+    if (question) {
+      qaLines.push(`Q: ${question.question}`);
+      qaLines.push(`A: ${answer.answer.trim()}`);
+      qaLines.push('');
+    }
+  }
+
   return [
     frontmatter,
     `# ${idea}`,
     '',
-    '## Current spec',
+    '## Q&A',
     '',
-    normalizedSummary,
-    '',
-    '## Q&A history',
-    '',
-    normalizedHistory,
-    '',
+    ...qaLines,
   ].join('\n');
 }
 
@@ -187,7 +187,7 @@ export async function ensureInterviewFile(
   } catch {
     await fs.writeFile(
       record.markdownPath,
-      buildInterviewDocument(record.idea, '', '', {
+      buildInterviewDocument(record.idea, [], [], {
         sessionID: record.sessionID,
         baseMessageCount: record.baseMessageCount,
       }),
@@ -210,16 +210,11 @@ export async function readInterviewDocument(
 
 export async function rewriteInterviewDocument(
   record: InterviewRecord,
-  summary: string,
+  _questions: InterviewQuestion[],
 ): Promise<string> {
-  const existing = await readInterviewDocument(record);
-  const history = extractHistorySection(existing);
-  const next = buildInterviewDocument(record.idea, summary, history, {
-    sessionID: record.sessionID,
-    baseMessageCount: record.baseMessageCount,
-  });
-  await fs.writeFile(record.markdownPath, next, 'utf8');
-  return next;
+  // For now, just return the existing document as-is
+  // The document is updated via appendInterviewAnswers when answers are submitted
+  return readInterviewDocument(record);
 }
 
 export async function appendInterviewAnswers(
@@ -228,29 +223,53 @@ export async function appendInterviewAnswers(
   answers: InterviewAnswer[],
 ): Promise<void> {
   const existing = await readInterviewDocument(record);
-  const summary = extractSummarySection(existing);
-  const history = extractHistorySection(existing);
+  const existingQaPairs = extractAnswersFromDocument(existing);
+
   const questionMap = new Map(
     questions.map((question) => [question.id, question]),
   );
-  const appended = answers
+
+  // Build new Q&A pairs from submitted answers
+  const newQaPairs = answers
     .map((answer) => {
       const question = questionMap.get(answer.questionId);
-      return question
-        ? `Q: ${question.question}\nA: ${answer.answer.trim()}`
-        : null;
+      if (!question) return null;
+      return {
+        question: question.question,
+        answer: answer.answer.trim(),
+      };
     })
-    .filter((value): value is string => value !== null)
-    .join('\n\n');
-  const nextHistory = [history === 'No answers yet.' ? '' : history, appended]
-    .filter(Boolean)
-    .join('\n\n');
-  await fs.writeFile(
-    record.markdownPath,
-    buildInterviewDocument(record.idea, summary, nextHistory, {
-      sessionID: record.sessionID,
-      baseMessageCount: record.baseMessageCount,
-    }),
-    'utf8',
-  );
+    .filter((value): value is { question: string; answer: string } => value !== null);
+
+  const allQaPairs = [...existingQaPairs, ...newQaPairs];
+
+  // Rebuild the document with all Q&A pairs
+  const frontmatter = record.sessionID
+    ? [
+        '---',
+        `sessionID: ${record.sessionID}`,
+        `baseMessageCount: ${record.baseMessageCount ?? 0}`,
+        `updatedAt: ${new Date().toISOString()}`,
+        '---',
+        '',
+      ].join('\n')
+    : '';
+
+  const qaLines: string[] = [];
+  for (const pair of allQaPairs) {
+    qaLines.push(`Q: ${pair.question}`);
+    qaLines.push(`A: ${pair.answer}`);
+    qaLines.push('');
+  }
+
+  const document = [
+    frontmatter,
+    `# ${record.idea}`,
+    '',
+    '## Q&A',
+    '',
+    ...qaLines,
+  ].join('\n');
+
+  await fs.writeFile(record.markdownPath, document, 'utf8');
 }

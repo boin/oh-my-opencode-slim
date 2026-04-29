@@ -142,7 +142,8 @@ describe("interview service", () => {
       expect(output.parts.length).toBe(1);
       expect(output.parts[0].type).toBe("text");
       expect(output.parts[0].text).toContain("My App Idea");
-      expect(output.parts[0].text).toContain("<interview_state>");
+      expect(output.parts[0].text).toContain("Q1:");
+      expect(output.parts[0].text).toContain("- ");
 
       // Should send UI notification prompt to session
       expect(ctx.client.session.prompt).toHaveBeenCalled();
@@ -189,8 +190,7 @@ describe("interview service", () => {
         "utf8"
       );
       expect(content).toContain("# Test Idea");
-      expect(content).toContain("## Current spec");
-      expect(content).toContain("## Q&A history");
+      expect(content).toContain("## Q&A");
 
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });
@@ -238,7 +238,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Here are some questions.\n<interview_state>\n{\n  "summary": "Building a test app",\n  "questions": [\n    {\n      "id": "q-1",\n      "question": "What platform?",\n      "options": ["Web", "Mobile"],\n      "suggested": "Web"\n    }\n  ]\n}\n</interview_state>',
+            text: 'Here are some questions.\n\nQ1: What platform?\n- Web *\n- Mobile',
           },
         ],
       });
@@ -255,13 +255,10 @@ describe("interview service", () => {
         "utf8"
       );
 
-      // Verify Q/A was appended to history section
-      expect(content).toContain("## Q&A history");
+      // Verify Q/A was appended
+      expect(content).toContain("## Q&A");
       expect(content).toContain("Q: What platform?");
       expect(content).toContain("A: Web");
-
-      // Verify the Current spec section exists (even if empty after submission)
-      expect(content).toContain("## Current spec");
 
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });
@@ -281,7 +278,7 @@ describe("interview service", () => {
           parts: [
             {
               type: "text",
-              text: 'First question.\n<interview_state>\n{\n  "summary": "Building an app",\n  "questions": [\n    {\n      "id": "q-1",\n      "question": "What is the name?",\n      "options": ["App1", "App2"],\n      "suggested": "App1"\n    }\n  ]\n}\n</interview_state>',
+              text: 'First question.\n\nQ1: What is the name?\n- App1 *\n- App2',
             },
           ],
         },
@@ -292,7 +289,7 @@ describe("interview service", () => {
           parts: [
             {
               type: "text",
-              text: 'Second question.\n<interview_state>\n{\n  "summary": "Building App1",\n  "questions": [\n    {\n      "id": "q-2",\n      "question": "What color?",\n      "options": ["Red", "Blue"],\n      "suggested": "Blue"\n    }\n  ]\n}\n</interview_state>',
+              text: 'Second question.\n\nQ1: What color?\n- Red\n- Blue *',
             },
           ],
         },
@@ -330,14 +327,14 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Acknowledged.\n<interview_state>\n{\n  "summary": "Building App1",\n  "questions": [\n    {\n      "id": "q-2",\n      "question": "What color?",\n      "options": ["Red", "Blue"],\n      "suggested": "Blue"\n    }\n  ]\n}\n</interview_state>',
+            text: 'Acknowledged.\n\nQ1: What color?\n- Red\n- Blue *',
           },
         ],
       });
 
-      // Submit second answer (q-2 is the active question now)
+      // Submit second answer (q-1 is the active question now - plain text format)
       await service.submitAnswers(requiredInterviewId, [
-        { questionId: "q-2", answer: "Blue" },
+        { questionId: "q-1", answer: "Blue" },
       ]);
 
       // Read file after submission
@@ -392,7 +389,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Here are some questions.\n<interview_state>\n{\n  "summary": "Building a test app",\n  "questions": [\n    {\n      "id": "q-1",\n      "question": "What platform?",\n      "options": ["Web", "Mobile"],\n      "suggested": "Web"\n    }\n  ]\n}\n</interview_state>',
+            text: 'Here are some questions.\n\nQ1: What platform?\n- Web *\n- Mobile',
           },
         ],
       });
@@ -408,8 +405,9 @@ describe("interview service", () => {
         "utf8"
       );
 
-      expect(content).not.toContain("## Q&A history\n\nNo answers yet.\n\nQ:");
-      expect(content).toContain("## Q&A history\n\nQ: What platform?\nA: Web");
+      expect(content).toContain("## Q&A");
+      expect(content).toContain("Q: What platform?");
+      expect(content).toContain("A: Web");
 
       await fs.rm(tempDir, { recursive: true, force: true });
     });
@@ -461,7 +459,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Here are some questions.\n<interview_state>\n{\n  "summary": "Building a test app",\n  "questions": [\n    {\n      "id": "q-1",\n      "question": "What platform?",\n      "options": ["Web", "Mobile"],\n      "suggested": "Web"\n    }\n  ]\n}\n</interview_state>',
+            text: 'Here are some questions.\n\nQ1: What platform?\n- Web *\n- Mobile',
           },
         ],
       });
@@ -530,7 +528,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Here are some questions.\n<interview_state>\n{\n  "summary": "Building a test app",\n  "questions": [\n    {\n      "id": "q-1",\n      "question": "What platform?",\n      "options": ["Web", "Mobile"],\n      "suggested": "Web"\n    }\n  ]\n}\n</interview_state>',
+            text: 'Here are some questions.\n\nQ1: What platform?\n- Web *\n- Mobile',
           },
         ],
       });
@@ -1093,7 +1091,6 @@ describe("interview service", () => {
       const outputText = extractOutputText(output);
       expect(outputText).toContain("at most 5 questions");
       expect(outputText).toContain("Return 0 to 5 questions");
-      expect(outputText).toContain("Do not ask more than 5 questions");
 
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });
@@ -1182,7 +1179,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Questions.\n<interview_state>\n{\n  "summary": "Test",\n  "questions": [\n    {"id": "q-1", "question": "Q1?", "options": ["A", "B"]},\n    {"id": "q-2", "question": "Q2?", "options": ["A", "B"]},\n    {"id": "q-3", "question": "Q3?", "options": ["A", "B"]},\n    {"id": "q-4", "question": "Q4?", "options": ["A", "B"]}\n  ]\n}\n</interview_state>',
+            text: 'Questions.\n\nQ1: Q1?\n- A\n- B\n\nQ2: Q2?\n- A\n- B\n\nQ3: Q3?\n- A\n- B\n\nQ4: Q4?\n- A\n- B',
           },
         ],
       });
@@ -1240,7 +1237,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Question.\n<interview_state>\n{\n  "summary": "Test",\n  "questions": [{"id": "q-1", "question": "What?", "options": ["A", "B"]}]\n}\n</interview_state>',
+            text: 'Question.\n\nQ1: What?\n- A\n- B',
           },
         ],
       });
@@ -1298,7 +1295,7 @@ describe("interview service", () => {
         parts: [
           {
             type: "text",
-            text: 'Question.\n<interview_state>\n{\n  "summary": "Test",\n  "questions": [{"id": "q-1", "question": "What?", "options": ["A", "B"]}]\n}\n</interview_state>',
+            text: 'Question.\n\nQ1: What?\n- A\n- B',
           },
         ],
       });
@@ -1332,7 +1329,7 @@ describe("interview service", () => {
   });
 
   describe("agent-provided title", () => {
-    test("renames file when assistant provides title in interview_state", async () => {
+    test("file uses original idea slug - no title renaming in plain-text format", async () => {
       const tempDir = await fs.mkdtemp("/tmp/interview-test-");
 
       // Start with empty messages
@@ -1360,7 +1357,7 @@ describe("interview service", () => {
         output
       );
 
-      // Initial file should use slugified user input
+      // File should use slugified user input
       const interviewDir = path.join(tempDir, "interview");
       let files = await fs.readdir(interviewDir);
       expect(files.length).toBe(1);
@@ -1371,25 +1368,25 @@ describe("interview service", () => {
       );
       const requiredInterviewId = requireInterviewId(interviewId);
 
-      // Now add agent response with a concise title
+      // Now add agent response with questions (plain-text format)
       messagesData.push({
         info: { role: "assistant" },
         parts: [
           {
             type: "text",
-            text: 'Here are some questions.\n<interview_state>\n{\n  "summary": "Building a task management app",\n  "title": "task-manager",\n  "questions": [{"id": "q-1", "question": "What platform?", "options": ["Web", "Mobile"]}]\n}\n</interview_state>',
+            text: 'Here are some questions.\n\nQ1: What platform?\n- Web\n- Mobile',
           },
         ],
       });
 
-      // Sync interview (this triggers the rename)
+      // Sync interview
       const state = await service.getInterviewState(requiredInterviewId);
 
-      // File should be renamed to use assistant-provided title
+      // File should keep original name (no title renaming in plain-text format)
       files = await fs.readdir(interviewDir);
       expect(files.length).toBe(1);
-      expect(files[0]).toBe("task-manager.md");
-      expect(state.markdownPath).toContain("task-manager.md");
+      expect(files[0]).toBe("my-great-app-idea-with-long-description.md");
+      expect(state.markdownPath).toContain("my-great-app-idea-with-long-description.md");
 
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });
@@ -1625,7 +1622,7 @@ describe("interview service", () => {
       await fs.rm(tempDir, { recursive: true, force: true });
     });
 
-    test("kickoff prompt includes title field guidance", async () => {
+    test("kickoff prompt uses plain-text format without title field", async () => {
       const tempDir = await fs.mkdtemp("/tmp/interview-test-");
       const ctx = createMockContext({ directory: tempDir });
 
@@ -1646,10 +1643,12 @@ describe("interview service", () => {
         output
       );
 
-      // Kickoff prompt should mention title field
+      // Kickoff prompt should use plain-text format (no JSON/title)
       const outputText = extractOutputText(output);
-      expect(outputText).toContain('"title":');
-      expect(outputText).toContain("concise-kebab-case-title-for-filename");
+      expect(outputText).toContain("Q1:");
+      expect(outputText).toContain("- ");
+      expect(outputText).not.toContain('"title":');
+      expect(outputText).not.toContain("<interview_state>");
 
       // Cleanup
       await fs.rm(tempDir, { recursive: true, force: true });

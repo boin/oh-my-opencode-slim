@@ -15,8 +15,6 @@ import {
   createInterviewFilePath,
   DEFAULT_OUTPUT_FOLDER,
   ensureInterviewFile,
-  extractSummarySection,
-  extractTitle,
   normalizeOutputFolder,
   readInterviewDocument,
   relativeInterviewPath,
@@ -29,6 +27,8 @@ import {
   buildAnswerPrompt,
   buildKickoffPrompt,
   buildResumePrompt,
+  buildRetryPrompt,
+  formatInstructions,
 } from './prompts';
 import type {
   InterviewAnswer,
@@ -202,49 +202,7 @@ export function createInterviewService(
     browserOpener(url);
   }
 
-  async function maybeRenameWithTitle(
-    interview: InterviewRecord,
-    assistantTitle: string | undefined,
-  ): Promise<void> {
-    if (!assistantTitle) {
-      return;
-    }
-    const newSlug = slugify(assistantTitle);
-    if (!newSlug) {
-      return;
-    }
 
-    const currentFileName = path.basename(interview.markdownPath, '.md');
-    // If already matches (or user-provided idea matches), skip
-    if (currentFileName === newSlug) {
-      return;
-    }
-
-    const dir = path.dirname(interview.markdownPath);
-    const newPath = path.join(dir, `${newSlug}.md`);
-
-    // Don't overwrite existing files
-    try {
-      await fs.access(newPath);
-      // File exists, don't rename
-      return;
-    } catch {
-      // File doesn't exist, safe to rename
-    }
-
-    try {
-      await fs.rename(interview.markdownPath, newPath);
-      interview.markdownPath = newPath;
-      log('[interview] renamed file with assistant title:', {
-        from: currentFileName,
-        to: newSlug,
-      });
-    } catch (error) {
-      log('[interview] failed to rename file:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
 
   async function loadMessages(sessionID: string): Promise<InterviewMessage[]> {
     const result = await ctx.client.session.messages({
@@ -318,13 +276,11 @@ export function createInterviewService(
       }
     }
 
-    const document = await fs.readFile(markdownPath, 'utf8');
     const messages = await loadMessages(sessionID);
-    const title = extractTitle(document);
     const record: InterviewRecord = {
       id: `${Date.now()}-${++idCounter}-${slugify(path.basename(markdownPath, '.md')) || 'interview'}`,
       sessionID,
-      idea: title || path.basename(markdownPath, '.md'),
+      idea: path.basename(markdownPath, '.md'),
       markdownPath,
       createdAt: nowIso(),
       status: 'active',
@@ -349,17 +305,10 @@ export function createInterviewService(
       .slice(interview.baseMessageCount)
       .filter(isUserVisibleMessage);
     const parsed = findLatestAssistantState(interviewMessages, maxQuestions);
-    const existingDocument = await readInterviewDocument(interview);
     const fallbackState = buildFallbackState(interviewMessages);
-    const state = parsed.state ?? {
-      ...fallbackState,
-      summary: extractSummarySection(existingDocument) || fallbackState.summary,
-    };
+    const state = parsed.state ?? fallbackState;
 
-    // Rename file if assistant provided a title (and file hasn't been renamed yet)
-    await maybeRenameWithTitle(interview, state.title);
-
-    const document = await rewriteInterviewDocument(interview, state.summary);
+    const document = await rewriteInterviewDocument(interview, state.questions);
 
     const interviewState: InterviewState = {
       interview,
@@ -382,7 +331,6 @@ export function createInterviewService(
                   : 'awaiting-agent',
       lastParseError: parsed.latestAssistantError,
       isBusy: sessionBusy.get(interview.sessionID) === true,
-      summary: state.summary,
       questions: state.questions,
       document,
     };
@@ -694,16 +642,13 @@ export function createInterviewService(
         continue;
       }
 
-      const title = extractTitle(content) || entry.replace(/\.md$/, '');
-      const summary = extractSummarySection(content) || '';
       const baseName = entry.replace(/\.md$/, '');
 
       items.push({
         fileName: entry,
         resumeCommand: `/interview ${baseName}`,
-        title,
-        summary:
-          summary.length > 120 ? `${summary.slice(0, 120)}\u2026` : summary,
+        title: baseName,
+        summary: '',
       });
     }
 
@@ -743,17 +688,16 @@ export function createInterviewService(
           `Current spec summary: ${state.summary}`,
           ``,
           `Ask up to ${maxQuestions} new clarifying questions about aspects that are still unclear or underspecified.`,
-          `Include the structured <interview_state> block with new questions.`,
+          ``,
+          formatInstructions(maxQuestions),
         ].join('\n');
       } else {
         prompt = [
-          `The user confirmed the interview spec is complete.`,
+          `The user confirmed the interview is complete.`,
           ``,
-          `Current spec summary: ${state.summary}`,
-          ``,
-          `Produce a final, polished version of the full spec document.`,
-          `Do NOT include any <interview_state> block — just output the final spec as clean markdown.`,
-          `The spec should be comprehensive, well-structured, and ready for implementation.`,
+          `Produce a final, polished summary of the interview as clean markdown.`,
+          `Do NOT include any question blocks — just output the final summary.`,
+          `The summary should be comprehensive, well-structured, and ready for implementation.`,
         ].join('\n');
       }
 

@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 export interface InterviewQuestion {
   id: string;
   question: string;
@@ -13,27 +11,8 @@ export interface InterviewAnswer {
 }
 
 export interface InterviewAssistantState {
-  summary: string;
-  title?: string;
   questions: InterviewQuestion[];
 }
-
-// ─── Zod Schemas (for validating untrusted LLM output) ─────────────
-
-/** Raw question object from LLM output — loose, everything optional. */
-export const RawQuestionSchema = z.object({
-  id: z.string().optional(),
-  question: z.string().optional(),
-  options: z.array(z.unknown()).optional(),
-  suggested: z.unknown().optional(),
-});
-
-/** Raw interview_state block from LLM output. */
-export const RawInterviewStateSchema = z.object({
-  summary: z.unknown().optional(),
-  title: z.unknown().optional(),
-  questions: z.array(z.unknown()).optional(),
-});
 
 // ─── Interfaces ─────────────────────────────────────────────────────
 
@@ -71,7 +50,7 @@ export interface InterviewFileItem {
   fileName: string;
   resumeCommand: string;
   title: string;
-  summary: string;
+  summary?: string;
   sessionID?: string;
   directory?: string;
 }
@@ -89,7 +68,6 @@ export interface InterviewState {
     | 'session-disconnected';
   lastParseError?: string;
   isBusy: boolean;
-  summary: string;
   questions: InterviewQuestion[];
   document: string;
 }
@@ -106,8 +84,6 @@ export interface InterviewStateEntry {
     | 'completed'
     | 'error'
     | 'session-disconnected';
-  summary: string;
-  title: string;
   questions: Array<{
     id: string;
     question: string;

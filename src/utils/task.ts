@@ -16,5 +16,6 @@ export function parseTaskIdFromTaskOutput(output: string): string | undefined {
     return match[1];
   }
 
-  return undefined;
+  const xmlMatch = /<task_id>([^<]+)<\/task_id>/.exec(output);
+  return xmlMatch?.[1];
 }

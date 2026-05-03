@@ -21,4 +21,15 @@ describe('parseTaskIdFromTaskOutput', () => {
 
     expect(parseTaskIdFromTaskOutput(output)).toBeUndefined();
   });
+
+  test('falls back to parsing XML task_id', () => {
+    const output = [
+      '<task_id>session-xml-123</task_id>',
+      '<task_result>',
+      'done',
+      '</task_result>',
+    ].join('\n');
+
+    expect(parseTaskIdFromTaskOutput(output)).toBe('session-xml-123');
+  });
 });

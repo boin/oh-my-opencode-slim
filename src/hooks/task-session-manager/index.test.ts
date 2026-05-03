@@ -567,6 +567,129 @@ describe('task-session-manager hook', () => {
     expect(prompt).not.toContain('config schema');
   });
 
+  test('adds recovery note for line-based task id with empty task_result', async () => {
+    const { hook } = createHook();
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      { args: { subagent_type: 'explorer', description: 'interrupted work' } },
+    );
+
+    const result = {
+      output: [
+        'task_id: child-1 (for resuming to continue this task if needed)',
+        '',
+        '<task_result>',
+        '</task_result>',
+      ].join('\n'),
+    };
+    await hook['tool.execute.after'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      result,
+    );
+
+    expect(result.output).toContain('[task partial state available]');
+    expect(result.output).toContain('task_id: child-1');
+    expect(result.output).toContain('agent: @explorer');
+  });
+
+  test('adds recovery note for provider 429 task output', async () => {
+    const { hook } = createHook();
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      { args: { subagent_type: 'oracle', description: 'rate limited work' } },
+    );
+
+    const result = {
+      output: [
+        'task_id: child-1 (for resuming to continue this task if needed)',
+        '',
+        '[ERROR] Provider error: 429 Too Many Requests',
+      ].join('\n'),
+    };
+    await hook['tool.execute.after'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      result,
+    );
+
+    expect(result.output).toContain('[task partial state available]');
+    expect(result.output).toContain('task_id: child-1');
+    expect(result.output).toContain('agent: @oracle');
+  });
+
+  test('does not add recovery note for invalid task arguments', async () => {
+    const { hook } = createHook();
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      { args: { subagent_type: 'explorer', description: 'bad args' } },
+    );
+
+    const result = {
+      output: [
+        'task_id: child-1 (for resuming to continue this task if needed)',
+        '',
+        '[ERROR] Invalid arguments: must provide a valid prompt',
+      ].join('\n'),
+    };
+    await hook['tool.execute.after'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      result,
+    );
+
+    expect(result.output).not.toContain('[task partial state available]');
+  });
+
+  test('does not add recovery note for missing task session', async () => {
+    const { hook } = createHook();
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      { args: { subagent_type: 'explorer', description: 'missing session' } },
+    );
+
+    const result = {
+      output: [
+        'task_id: child-1 (for resuming to continue this task if needed)',
+        '',
+        '[ERROR] Session not found',
+      ].join('\n'),
+    };
+    await hook['tool.execute.after'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      result,
+    );
+
+    expect(result.output).not.toContain('[task partial state available]');
+  });
+
+  test('does not duplicate an existing task partial state marker', async () => {
+    const { hook } = createHook();
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      { args: { subagent_type: 'explorer', description: 'already marked' } },
+    );
+
+    const result = {
+      output: [
+        'task_id: child-1 (for resuming to continue this task if needed)',
+        '',
+        '[ERROR] Provider error: 429 Too Many Requests',
+        '[task partial state available]',
+      ].join('\n'),
+    };
+    await hook['tool.execute.after'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
+      result,
+    );
+
+    expect(
+      result.output.match(/\[task partial state available\]/g),
+    ).toHaveLength(1);
+  });
+
   test('does not drop remembered session on non-runtime session text', async () => {
     const { hook } = createHook();
 

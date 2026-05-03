@@ -61,6 +61,30 @@ interface ChatMessage {
 
 const RESUMABLE_SESSIONS_START = '<resumable_sessions>';
 const RESUMABLE_SESSIONS_END = '</resumable_sessions>';
+const TASK_PARTIAL_STATE_MARKER = '[task partial state available]';
+
+const RECOVERABLE_TASK_ERROR_PATTERNS = [
+  /provider.*error/i,
+  /server.*error/i,
+  /connection.*error/i,
+  /\b429\b/,
+  /rate.?limit/i,
+  /too many requests/i,
+  /timeout/i,
+  /overloaded/i,
+  /quota.?exceeded/i,
+  /usage.?exceeded/i,
+  /resource.?exhausted/i,
+  /insufficient.?quota/i,
+];
+
+const NON_RECOVERABLE_TASK_ERROR_PATTERNS = [
+  /invalid arguments/i,
+  /must provide/i,
+  /is not allowed\. allowed agents:/i,
+  /session.*not found/i,
+  /no session/i,
+];
 
 function isAgentName(value: unknown): value is AgentName {
   return typeof value === 'string' && AGENT_NAME_SET.has(value as AgentName);
@@ -107,6 +131,46 @@ function countReadLines(output: string): number[] {
     lines.add(Number(match[1]));
   }
   return [...lines];
+}
+
+function isRecoverableInterruptedTaskOutput(output: string): boolean {
+  if (output.includes(TASK_PARTIAL_STATE_MARKER)) return false;
+
+  const trimmed = output.trim();
+  if (trimmed.length === 0) return true;
+
+  if (
+    NON_RECOVERABLE_TASK_ERROR_PATTERNS.some((pattern) => pattern.test(output))
+  ) {
+    return false;
+  }
+
+  if (/<task_result>\s*<\/task_result>/.test(trimmed)) return true;
+
+  return RECOVERABLE_TASK_ERROR_PATTERNS.some((pattern) =>
+    pattern.test(output),
+  );
+}
+
+function appendRecoveryNote(
+  output: string,
+  taskId: string,
+  agentType: AgentName,
+): string {
+  if (output.includes(TASK_PARTIAL_STATE_MARKER)) return output;
+
+  return [
+    output.trimEnd(),
+    '',
+    TASK_PARTIAL_STATE_MARKER,
+    'This task returned no final result, but its subagent session may contain partial state.',
+    'If the user asks to continue or recover this work, reuse this task_id to reconnect.',
+    `  task_id: ${taskId}`,
+    `  agent: @${agentType}`,
+    '',
+    'The subagent can see its prior messages, tool calls, reads, patches, and interrupted/error state.',
+    'This is recovery context, not an instruction to resume automatically.',
+  ].join('\n');
 }
 
 export function createTaskSessionManagerHook(
@@ -349,6 +413,13 @@ export function createTaskSessionManagerHook(
         agentType: pending.agentType,
         label: pending.label,
       });
+      if (isRecoverableInterruptedTaskOutput(output.output)) {
+        output.output = appendRecoveryNote(
+          output.output,
+          taskId,
+          pending.agentType,
+        );
+      }
       pendingManagedTaskIds.delete(taskId);
       const contextFiles = contextFilesForPrompt(contextByTask.get(taskId));
       sessionManager.addContext(taskId, contextFiles);

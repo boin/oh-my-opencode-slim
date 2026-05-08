@@ -230,28 +230,11 @@ export class SessionManager {
       )
       .filter(([, entries]) => entries.length > 0)
       .sort((a, b) => b[1][0].lastUsedAt - a[1][0].lastUsedAt)
-      .map(([agentType, entries]) =>
-        [
+      .map(
+        ([agentType, entries]) =>
           `- ${agentType}: ${entries
             .map((entry) => `${entry.alias} ${entry.label}`)
             .join('; ')}`,
-          ...entries
-            .map(
-              (entry) =>
-                [
-                  entry,
-                  formatContextFiles(entry.contextFiles, {
-                    minLines: this.readContextMinLines,
-                    maxFiles: this.readContextMaxFiles,
-                  }),
-                ] as const,
-            )
-            .filter(([, context]) => context.length > 0)
-            .map(
-              ([entry, context]) =>
-                `  Context read by ${entry.alias}: ${context}`,
-            ),
-        ].join('\n'),
       );
 
     if (lines.length === 0) return undefined;
@@ -339,19 +322,4 @@ export class SessionManager {
     this.orderCounter += 1;
     return this.orderCounter;
   }
-}
-
-function formatContextFiles(
-  files: ContextFile[],
-  options: { minLines: number; maxFiles: number },
-): string {
-  const eligible = files
-    .filter((file) => file.lineCount >= options.minLines)
-    .sort((a, b) => b.lastReadAt - a.lastReadAt);
-  const shown = eligible.slice(0, options.maxFiles);
-  const rest = eligible.length - shown.length;
-  const rendered = shown.map(
-    (file) => `${file.path} (${file.lineCount} lines)`,
-  );
-  return `${rendered.join(', ')}${rest > 0 ? ` (+${rest} more)` : ''}`;
 }

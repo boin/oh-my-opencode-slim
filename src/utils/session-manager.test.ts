@@ -46,7 +46,7 @@ describe('SessionManager', () => {
     expect(manager.formatForPrompt('parent-1')).toBeUndefined();
   });
 
-  test('includes read context for remembered sessions', () => {
+  test('omits read context from resumable prompt', () => {
     const manager = new SessionManager(2);
 
     manager.remember({
@@ -66,12 +66,12 @@ describe('SessionManager', () => {
 
     const prompt = manager.formatForPrompt('parent-1');
     expect(prompt).toContain('exp-1 session manager');
-    expect(prompt).toContain(
-      'Context read by exp-1: src/multiplexer/session-manager.ts (24 lines), src/index.ts (42 lines)',
-    );
+    expect(prompt).not.toContain('Context read by exp-1');
+    expect(prompt).not.toContain('src/multiplexer/session-manager.ts');
+    expect(prompt).not.toContain('src/index.ts');
   });
 
-  test('filters tiny reads and caps read context files', () => {
+  test('does not render tracked read context file paths', () => {
     const manager = new SessionManager(2);
 
     manager.remember({
@@ -90,12 +90,13 @@ describe('SessionManager', () => {
     );
 
     const prompt = manager.formatForPrompt('parent-1') ?? '';
+    expect(prompt).toContain('exp-1 large context');
     expect(prompt).not.toContain('file-0.ts');
-    expect(prompt).toContain('file-9.ts (29 lines)');
-    expect(prompt).toContain('(+1 more)');
+    expect(prompt).not.toContain('file-9.ts');
+    expect(prompt).not.toContain('(+1 more)');
   });
 
-  test('uses configurable read context thresholds', () => {
+  test('keeps configurable read context thresholds internal', () => {
     const manager = new SessionManager(2, {
       readContextMinLines: 5,
       readContextMaxFiles: 1,
@@ -114,13 +115,14 @@ describe('SessionManager', () => {
     ]);
 
     const prompt = manager.formatForPrompt('parent-1') ?? '';
+    expect(prompt).toContain('exp-1 custom thresholds');
     expect(prompt).not.toContain('small.ts');
-    expect(prompt).toContain('large.ts (12 lines)');
+    expect(prompt).not.toContain('large.ts');
     expect(prompt).not.toContain('medium.ts');
-    expect(prompt).toContain('(+1 more)');
+    expect(prompt).not.toContain('(+1 more)');
   });
 
-  test('bounds stored read context files to the render cap plus overflow marker', () => {
+  test('bounds stored read context files without rendering them', () => {
     const manager = new SessionManager(2, {
       readContextMinLines: 1,
       readContextMaxFiles: 2,
@@ -143,9 +145,10 @@ describe('SessionManager', () => {
 
     expect(remembered.contextFiles).toHaveLength(3);
     const prompt = manager.formatForPrompt('parent-1') ?? '';
-    expect(prompt).toContain('file-9.ts (10 lines)');
-    expect(prompt).toContain('file-8.ts (10 lines)');
-    expect(prompt).toContain('(+1 more)');
+    expect(prompt).toContain('exp-1 bounded context');
+    expect(prompt).not.toContain('file-9.ts');
+    expect(prompt).not.toContain('file-8.ts');
+    expect(prompt).not.toContain('(+1 more)');
     expect(prompt).not.toContain('file-0.ts');
   });
 });

@@ -130,7 +130,7 @@ describe('task-session-manager hook', () => {
     expect(next.args.task_id).toBe('child-1');
   });
 
-  test('tracks files read by child sessions in resumable message context', async () => {
+  test('keeps file context out of resumable message context', async () => {
     const { hook } = createHook();
 
     await hook.event({
@@ -190,12 +190,11 @@ describe('task-session-manager hook', () => {
 
     const userMessage = messages.messages[0];
     expect(userMessage.parts[0].text).toContain('exp-1 session files');
-    expect(userMessage.parts[0].text).toContain(
-      'Context read by exp-1: src/index.ts (12 lines)',
-    );
+    expect(userMessage.parts[0].text).not.toContain('Context read by exp-1');
+    expect(userMessage.parts[0].text).not.toContain('src/index.ts');
   });
 
-  test('accumulates multiple reads and hides tiny read context', async () => {
+  test('tracks read context internally without rendering file paths', async () => {
     const { hook } = createHook();
 
     await hook.event({
@@ -255,8 +254,10 @@ describe('task-session-manager hook', () => {
     await hook['experimental.chat.messages.transform']({}, messages);
 
     const prompt = messages.messages[0].parts[0].text;
+    expect(prompt).toContain('exp-1 line counts');
     expect(prompt).not.toContain('small.ts');
-    expect(prompt).toContain('src/large.ts (12 lines)');
+    expect(prompt).not.toContain('large.ts');
+    expect(prompt).not.toContain('Context read by');
   });
 
   test('counts overlapping repeated reads once per unique line', async () => {
@@ -298,8 +299,9 @@ describe('task-session-manager hook', () => {
     await hook['experimental.chat.messages.transform']({}, messages);
 
     const prompt = messages.messages[0].parts[0].text;
-    expect(prompt).toContain('src/repeat.ts (12 lines)');
-    expect(prompt).not.toContain('src/repeat.ts (24 lines)');
+    expect(prompt).toContain('exp-1 repeat reads');
+    expect(prompt).not.toContain('src/repeat.ts');
+    expect(prompt).not.toContain('Context read by');
   });
 
   test('uses configured read context thresholds', async () => {
@@ -348,9 +350,12 @@ describe('task-session-manager hook', () => {
     await hook['experimental.chat.messages.transform']({}, messages);
 
     const prompt = messages.messages[0].parts[0].text;
+    expect(prompt).toContain('exp-1 configured caps');
     expect(prompt).not.toContain('small.ts');
-    expect(prompt).toContain('Context read by exp-1:');
-    expect(prompt).toContain('(+1 more)');
+    expect(prompt).not.toContain('medium.ts');
+    expect(prompt).not.toContain('large.ts');
+    expect(prompt).not.toContain('Context read by exp-1:');
+    expect(prompt).not.toContain('(+1 more)');
   });
 
   test('ignores reads from unmanaged child sessions', async () => {
@@ -438,9 +443,9 @@ describe('task-session-manager hook', () => {
     expect(prompt).not.toContain('exp-1 thread 1');
     expect(prompt).not.toContain('file-1.ts');
     expect(prompt).toContain('exp-2 thread 2');
-    expect(prompt).toContain('file-2.ts (12 lines)');
+    expect(prompt).not.toContain('file-2.ts');
     expect(prompt).toContain('exp-3 thread 3');
-    expect(prompt).toContain('file-3.ts (12 lines)');
+    expect(prompt).not.toContain('file-3.ts');
   });
 
   test('drops stale remembered sessions and falls back to fresh', async () => {

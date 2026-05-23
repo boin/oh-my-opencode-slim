@@ -11,3 +11,5 @@ export {
   createSubtaskState,
   createSubtaskTool,
 } from './subtask';
+export { createTraceTool } from './trace';
+export { createSpecTools } from './spec';

@@ -46,6 +46,13 @@ export const CUSTOM_SKILLS: CustomSkill[] = [
     allowedAgents: ['orchestrator'],
     sourcePath: 'src/skills/clonedeps',
   },
+  {
+    name: 'grill',
+    description:
+      'SDD self-interrogation workflow that converts a raw request into a defensible requirements + design pair before any code is written',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/grill',
+  },
 ];
 
 /**

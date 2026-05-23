@@ -15,3 +15,4 @@ export { createPostFileToolNudgeHook } from './post-file-tool-nudge';
 export { createSessionGoalHook } from './session-goal';
 export { createTaskSessionManagerHook } from './task-session-manager';
 export { createTodoContinuationHook } from './todo-continuation';
+export { createTraceFreshnessHook } from './trace-freshness';

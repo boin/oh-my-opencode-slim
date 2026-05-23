@@ -1,0 +1,62 @@
+// Reference preset for this fork: Opus brain + GPT hands + Gemini at edges.
+//
+// Copy into ~/.config/opencode/oh-my-opencode-slim.json and adjust model
+// IDs to match what your `opencode models --refresh` returns.
+//
+// memex MCP must be installed separately (https://github.com/getmemex/memex).
+// This preset wires it only to @oracle per docs/spec/design.md DES-007.
+{
+  "$schema": "https://unpkg.com/oh-my-opencode-slim@latest/oh-my-opencode-slim.schema.json",
+  "preset": "opus-gpt-mix",
+  "presets": {
+    "opus-gpt-mix": {
+      "orchestrator": {
+        "model": "anthropic/claude-opus-4-7",
+        "skills": ["*"],
+        "mcps": ["*", "!context7", "memex"]
+      },
+      "oracle": {
+        "model": "anthropic/claude-opus-4-7",
+        "variant": "high",
+        "skills": ["simplify"],
+        "mcps": ["memex"]
+      },
+      "council": {
+        "model": "anthropic/claude-opus-4-7"
+      },
+      "librarian": {
+        "model": "openai/gpt-5.5",
+        "variant": "low",
+        "skills": [],
+        "mcps": ["websearch", "context7", "grep_app"]
+      },
+      "explorer": {
+        "model": "openai/gpt-5.5",
+        "variant": "low",
+        "skills": [],
+        "mcps": []
+      },
+      "designer": {
+        "model": "openai/gpt-5.5",
+        "variant": "medium",
+        "skills": [],
+        "mcps": []
+      },
+      "fixer": {
+        "model": "openai/gpt-5.5",
+        "variant": "low",
+        "skills": [],
+        "mcps": []
+      }
+    }
+  },
+  "council": {
+    "presets": {
+      "default": {
+        "alpha": { "model": "anthropic/claude-opus-4-7" },
+        "beta": { "model": "openai/gpt-5.5" },
+        "gamma": { "model": "google/gemini-3-pro" }
+      }
+    }
+  }
+}

@@ -161,6 +161,98 @@ Verify all agents respond successfully.
 - If they want to add a different provider later (OpenCode Go, Kimi, GitHub Copilot, ZAI), they can update this file manually. See **[Configuration Reference](configuration.md)** and the preset docs for examples.
 - Read the generated `~/.config/opencode/oh-my-opencode-slim.json` (or `.jsonc`) file to understand the current configuration.
 
+<!-- slim-fork-addendum: SDD/TDD/memex/grill — keep delimited for upstream merges -->
+
+### Step 5: Apply the SDD/TDD Preset (Fork-Specific)
+
+This fork ships an opinionated preset wired for **Opus brain + GPT hands + Gemini at edges**, with `memex` as the cross-session memory and `@oracle` as the sole writer.
+
+Reference: `docs/spec/preset-example.jsonc` in the fork source.
+
+Decision tree for the agent:
+
+1. **User has a private gateway (model names are not official):**
+   - First add a custom provider to `~/.config/opencode/opencode.json`:
+     ```json
+     {
+       "provider": {
+         "<alias>": {
+           "npm": "@ai-sdk/openai-compatible",
+           "name": "<Gateway Name>",
+           "options": {
+             "baseURL": "https://<gateway>/v1",
+             "apiKey": "{env:<ALIAS>_API_KEY}"
+           },
+           "models": {
+             "claude":  { "name": "<alias> Claude (Opus-class)" },
+             "gpt":     { "name": "<alias> GPT-5.5" },
+             "gemini":  { "name": "<alias> Gemini Pro" }
+           }
+         }
+       }
+     }
+     ```
+   - Then in `~/.config/opencode/oh-my-opencode-slim.json`, replace every `anthropic/claude-opus-4-7` with `<alias>/claude`, every `openai/gpt-5.5` with `<alias>/gpt`, and `google/gemini-3-pro` (in council `gamma`) with `<alias>/gemini`.
+   - If different real models live on different gateways, split into multiple providers (`<alias>-claude`, `<alias>-gpt`, ...) rather than stuffing one block.
+
+2. **User uses official providers:** copy `docs/spec/preset-example.jsonc` verbatim into `~/.config/opencode/oh-my-opencode-slim.json`, then run `opencode models --refresh` and adjust model IDs to whatever the refresh lists (provider tails sometimes carry version suffixes).
+
+**Variants in the preset (do not silently flatten):**
+- `oracle.variant: high` — high reasoning effort, used at entry/output review gates.
+- `librarian/explorer/fixer.variant: low` — cheap execution.
+- `designer.variant: medium` — UI polish needs more thought than rote edits.
+
+### Step 6: Install memex MCP and Respect Its Write Boundary
+
+The preset wires `memex` to `orchestrator` (read) and `oracle` (read + write). This is enforced at the **prompt level**, not the config level — the agent must not save memories from any role other than `@oracle`.
+
+1. Install per memex upstream docs (https://github.com/getmemex/memex). Ensure it appears as an available MCP in `opencode mcp list`.
+
+2. Verify the preset already includes `"memex"` in:
+   - `presets.<active>.orchestrator.mcps`
+   - `presets.<active>.oracle.mcps`
+
+3. Tell the user:
+   - `@oracle` is the **sole writer**. Pitfall lessons + good-pattern notes only.
+   - `@orchestrator` is a **reader**. It calls `recall_memories` before launching each subtask.
+   - Never let other agents (`fixer`, `librarian`, `explorer`, `designer`) touch memex — they are not in the preset by design.
+
+4. Sanity check after first run:
+   ```text
+   @oracle: save a test memory tagged "smoke-test"
+   @orchestrator: recall memories tagged "smoke-test"
+   ```
+   Both should succeed. Then have the user delete the test card.
+
+### Step 7: Initialize SDD Spec Directory in the Target Project
+
+The fork's orchestrator follows an SDD/TDD workflow that expects `docs/spec/{requirements,design,trace}.md` in the project being worked on (not in the fork itself).
+
+For each new project the user wants to drive with this fork:
+
+1. From the project root:
+   ```bash
+   mkdir -p docs/spec
+   ```
+
+2. Start `opencode` and tell the orchestrator:
+   ```text
+   /grill <one-paragraph description of what you want to build>
+   ```
+
+3. The orchestrator will:
+   - Enter the four-phase grill (assumptions → risks → self-answerable Qs → human-decision Qs).
+   - For every external dependency mentioned, force both **read** and **write** responsibilities to be defined.
+   - Converge within **3 rounds** or halt with the residual question list.
+   - Emit `docs/spec/requirements.md` and `docs/spec/design.md`.
+   - Run `trace_regenerate` to produce `docs/spec/trace.md`.
+
+4. From that point on, the orchestrator self-injects the SDD/TDD discipline block at every turn (via `buildSddTddAppendBlock`) and the `trace-freshness` hook auto-regenerates `trace.md` whenever `requirements.md` or `design.md` is touched. No further user action needed for housekeeping.
+
+**If the project is trivial** (typo / one-line fix / no spec-worthy behavior change) the orchestrator skips grill and goes straight to direct-commit per the routing rules in the discipline block.
+
+<!-- /slim-fork-addendum -->
+
 ---
 
 ## Troubleshooting

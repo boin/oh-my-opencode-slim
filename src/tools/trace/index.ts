@@ -3,7 +3,12 @@ import {
   type ToolDefinition,
   tool,
 } from '@opencode-ai/plugin';
-import { isTraceStale, regenerateTrace } from './io';
+import {
+  findStaleTraces,
+  regenerateAllDomainTraces,
+  regenerateDomainTrace,
+  regenerateJobTrace,
+} from './io';
 
 const z = tool.schema;
 
@@ -13,26 +18,31 @@ export function createTraceTool(
   _ctx: PluginInput,
 ): Record<string, ToolDefinition> {
   const trace_regenerate = tool({
-    description: `Regenerate docs/spec/trace.md from requirements.md and design.md.
+    description: `Regenerate trace.md for domain spec(s) and/or job spec(s).
 
-Scans REQ-* headings in requirements.md and DES-* headings + "Rationale anchor:" lines in design.md, then writes a fresh REQ→DES mapping table to trace.md.
+Layout: docs/spec/domains/<domain>/{requirements,design,trace}.md (long-lived per-subsystem) and docs/spec/jobs/<slug>/{delta-requirements,delta-design,trace}.md (one-shot cross-domain change).
 
-Heading format is strict: each REQ/DES heading MUST match "## REQ-<digits>:" or "## DES-<digits>:" (level-2, trailing colon required). Headings like "## REQ-1 title" without a colon are ignored and produce an empty trace table. Multi-REQ anchors must be comma-separated on a single "Rationale anchor:" line.
+Heading format is strict: "## <domain>/REQ-N:" and "## <domain>/DES-N:" where <domain> is kebab-case. Legacy unqualified "## REQ-N:" headings are ignored.
 
-Use when entering execution and trace is stale, or after editing requirements/design.
+Anchor format: "Rationale anchor: <id>[, <id>...]" on a single line. Bare ids (REQ-N) qualify against the file's domain in domain spec; in job spec all anchors must be fully qualified (auth/REQ-3).
 
-Returns a short status message.`,
+Dispatch: pass domain=<name> to regenerate one domain, job=<slug> for one job, check_only=true to report staleness only. Defaults regenerate all domains.`,
     args: {
       spec_dir: z
         .string()
         .optional()
         .describe(
-          `Path to the spec directory containing requirements.md and design.md. Defaults to "${DEFAULT_SPEC_DIR}" relative to the current working directory.`,
+          `Spec directory. Defaults to "${DEFAULT_SPEC_DIR}" relative to cwd.`,
         ),
+      domain: z
+        .string()
+        .optional()
+        .describe('Regenerate only this domain trace.'),
+      job: z.string().optional().describe('Regenerate only this job trace.'),
       check_only: z
         .boolean()
         .optional()
-        .describe('If true, only report whether trace is stale; do not write.'),
+        .describe('Report stale domains/jobs without writing.'),
     },
     async execute(args) {
       const dir =
@@ -41,12 +51,24 @@ Returns a short status message.`,
           : DEFAULT_SPEC_DIR;
 
       if (args.check_only) {
-        const stale = isTraceStale(dir);
-        return stale ? `trace stale in ${dir}` : `trace fresh in ${dir}`;
+        const stale = findStaleTraces(dir);
+        if (stale.length === 0) return `trace fresh in ${dir}`;
+        const summary = stale.map((s) => `${s.kind}:${s.name}`).join(', ');
+        return `trace stale in ${dir}: ${summary}`;
       }
 
-      const result = regenerateTrace(dir);
-      return `trace regenerated at ${result.path}`;
+      if (args.domain) {
+        const r = regenerateDomainTrace(dir, args.domain);
+        return `regenerated domain trace at ${r.path}`;
+      }
+      if (args.job) {
+        const r = regenerateJobTrace(dir, args.job);
+        return `regenerated job trace at ${r.path}`;
+      }
+
+      const results = regenerateAllDomainTraces(dir);
+      if (results.length === 0) return `no domains found under ${dir}/domains/`;
+      return `regenerated ${results.length} domain trace(s): ${results.map((r) => r.domain).join(', ')}`;
     },
   });
 

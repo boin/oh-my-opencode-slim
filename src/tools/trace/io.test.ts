@@ -1,10 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { regenerateTrace } from './io';
+import {
+  findStaleTraces,
+  regenerateAllDomainTraces,
+  regenerateDomainTrace,
+  regenerateJobTrace,
+} from './io';
 
-describe('trace/io', () => {
+describe('trace/io (domain + job)', () => {
   let dir: string;
 
   beforeEach(() => {
@@ -15,58 +26,127 @@ describe('trace/io', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test('regenerates trace.md from requirements + design', () => {
-    writeFileSync(
-      join(dir, 'requirements.md'),
-      '## REQ-001: foo\n\nbody\n\n## REQ-002: bar\n\nbody',
-    );
-    writeFileSync(
-      join(dir, 'design.md'),
-      '## DES-001: foo\n\nRationale anchor: REQ-001.\n\n## DES-002: bar\n\nRationale anchor: REQ-001, REQ-002.',
-    );
+  function writeDomain(name: string, req: string, des: string) {
+    const d = join(dir, 'domains', name);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'requirements.md'), req);
+    writeFileSync(join(d, 'design.md'), des);
+  }
 
-    const result = regenerateTrace(dir);
+  function writeJob(slug: string, req: string, des: string) {
+    const d = join(dir, 'jobs', slug);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'delta-requirements.md'), req);
+    writeFileSync(join(d, 'delta-design.md'), des);
+  }
 
-    expect(result.written).toBe(true);
-    expect(result.path).toBe(join(dir, 'trace.md'));
-    const trace = Bun.file(result.path).text();
-    return trace.then((text) => {
-      expect(text).toContain('| REQ-001 | DES-001, DES-002 | — |');
-      expect(text).toContain('| REQ-002 | DES-002 | — |');
+  describe('regenerateDomainTrace', () => {
+    test('writes trace for a single domain with qualified ids', () => {
+      writeDomain(
+        'auth',
+        '## auth/REQ-1: login\n\nbody\n\n## auth/REQ-2: logout\n\nbody',
+        '## auth/DES-1: x\n\nRationale anchor: REQ-1.\n\nbody',
+      );
+
+      const result = regenerateDomainTrace(dir, 'auth');
+      expect(result.written).toBe(true);
+      expect(result.path).toBe(join(dir, 'domains', 'auth', 'trace.md'));
+
+      const trace = readFileSync(result.path, 'utf8');
+      expect(trace).toContain('| auth/REQ-1 | auth/DES-1 | — |');
+      expect(trace).toContain('| auth/REQ-2 | — | — |');
+    });
+
+    test('throws when domain dir missing', () => {
+      expect(() => regenerateDomainTrace(dir, 'nope')).toThrow(/not found/);
     });
   });
 
-  test('throws when requirements.md missing', () => {
-    expect(() => regenerateTrace(dir)).toThrow('requirements.md not found');
+  describe('regenerateAllDomainTraces', () => {
+    test('regenerates every domain under domains/', () => {
+      writeDomain(
+        'auth',
+        '## auth/REQ-1: x',
+        '## auth/DES-1: y\n\nRationale anchor: REQ-1.',
+      );
+      writeDomain(
+        'payment',
+        '## payment/REQ-1: x',
+        '## payment/DES-1: y\n\nRationale anchor: REQ-1.',
+      );
+      const results = regenerateAllDomainTraces(dir);
+      expect(results.map((r) => r.domain).sort()).toEqual(['auth', 'payment']);
+      expect(
+        readFileSync(join(dir, 'domains', 'auth', 'trace.md'), 'utf8'),
+      ).toContain('auth/REQ-1');
+      expect(
+        readFileSync(join(dir, 'domains', 'payment', 'trace.md'), 'utf8'),
+      ).toContain('payment/REQ-1');
+    });
+
+    test('returns empty list when no domains exist', () => {
+      expect(regenerateAllDomainTraces(dir)).toEqual([]);
+    });
   });
 
-  test('throws when design.md missing', () => {
-    writeFileSync(join(dir, 'requirements.md'), '## REQ-001: foo');
-    expect(() => regenerateTrace(dir)).toThrow('design.md not found');
+  describe('regenerateJobTrace', () => {
+    test('writes a cross-domain rollup of qualified ids touched', () => {
+      writeJob(
+        'add-otp',
+        '## auth/REQ-3: otp flow\n\nbody\n\n## notify/REQ-2: send sms\n\nbody',
+        '## auth/DES-3: x\n\nRationale anchor: auth/REQ-3.\n\nbody\n\n## notify/DES-2: y\n\nRationale anchor: notify/REQ-2.',
+      );
+      const result = regenerateJobTrace(dir, 'add-otp');
+      expect(result.written).toBe(true);
+      const trace = readFileSync(result.path, 'utf8');
+      expect(trace).toContain('| auth/REQ-3 | auth/DES-3 | — |');
+      expect(trace).toContain('| notify/REQ-2 | notify/DES-2 | — |');
+    });
+
+    test('throws when job dir missing', () => {
+      expect(() => regenerateJobTrace(dir, 'nope')).toThrow(/not found/);
+    });
   });
 
-  test('isTraceStale returns true when source newer than trace', async () => {
-    const { isTraceStale } = await import('./io');
-    writeFileSync(join(dir, 'trace.md'), 'old');
-    await new Promise((r) => setTimeout(r, 10));
-    writeFileSync(join(dir, 'requirements.md'), 'newer');
-    writeFileSync(join(dir, 'design.md'), 'newer');
-    expect(isTraceStale(dir)).toBe(true);
-  });
+  describe('findStaleTraces', () => {
+    test('reports stale domain when trace missing', () => {
+      writeDomain(
+        'auth',
+        '## auth/REQ-1: x',
+        '## auth/DES-1: y\n\nRationale anchor: REQ-1.',
+      );
+      const stale = findStaleTraces(dir);
+      expect(stale).toEqual([{ kind: 'domain', name: 'auth' }]);
+    });
 
-  test('isTraceStale returns false when trace newer than source', async () => {
-    const { isTraceStale } = await import('./io');
-    writeFileSync(join(dir, 'requirements.md'), 'old');
-    writeFileSync(join(dir, 'design.md'), 'old');
-    await new Promise((r) => setTimeout(r, 10));
-    writeFileSync(join(dir, 'trace.md'), 'newer');
-    expect(isTraceStale(dir)).toBe(false);
-  });
+    test('reports stale job when delta newer than trace', async () => {
+      writeJob(
+        'feat-x',
+        '## auth/REQ-2: x',
+        '## auth/DES-2: y\n\nRationale anchor: auth/REQ-2.',
+      );
+      regenerateJobTrace(dir, 'feat-x');
+      await Bun.sleep(10);
+      writeFileSync(
+        join(dir, 'jobs', 'feat-x', 'delta-requirements.md'),
+        '## auth/REQ-2: x\n\n## auth/REQ-3: z',
+      );
+      const stale = findStaleTraces(dir);
+      expect(stale).toContainEqual({ kind: 'job', name: 'feat-x' });
+    });
 
-  test('isTraceStale returns true when trace missing', async () => {
-    const { isTraceStale } = await import('./io');
-    writeFileSync(join(dir, 'requirements.md'), 'x');
-    writeFileSync(join(dir, 'design.md'), 'x');
-    expect(isTraceStale(dir)).toBe(true);
+    test('returns empty when everything fresh', () => {
+      writeDomain(
+        'auth',
+        '## auth/REQ-1: x',
+        '## auth/DES-1: y\n\nRationale anchor: REQ-1.',
+      );
+      regenerateDomainTrace(dir, 'auth');
+      expect(findStaleTraces(dir)).toEqual([]);
+    });
+
+    test('returns empty when spec dir has no domains and no jobs', () => {
+      expect(findStaleTraces(dir)).toEqual([]);
+    });
   });
 });

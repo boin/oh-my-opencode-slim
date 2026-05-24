@@ -3,7 +3,7 @@ import {
   type ToolDefinition,
   tool,
 } from '@opencode-ai/plugin';
-import { archiveChange, mergeChange, proposeChange } from './io';
+import { archiveJob, mergeJob, proposeJob } from './io';
 
 const z = tool.schema;
 
@@ -13,18 +13,26 @@ export function createSpecTools(
   _ctx: PluginInput,
 ): Record<string, ToolDefinition> {
   const spec_propose = tool({
-    description: `Open a new spec change proposal under docs/spec/changes/<slug>/.
+    description: `Open a new spec job under docs/spec/jobs/<slug>/.
 
-Creates proposal.md plus delta-requirements.md and delta-design.md with the next available REQ/DES IDs pre-allocated. Use when evolving the spec after the trunk triad already exists. For first-time bootstrap (no requirements.md yet) write the trunk files directly instead.
+A "job" is a one-shot change container that MAY span multiple domains. Creates proposal.md plus delta-requirements.md and delta-design.md. When 'domains' is provided, pre-allocates the next "<domain>/REQ-N" and "<domain>/DES-N" id per domain (accounting for other open jobs to avoid collision).
 
-Returns the allocated IDs and the change directory path.`,
+For changes touching a single domain, still go through this tool — domains=[<that-domain>]. Direct edits to docs/spec/domains/<d>/{requirements,design}.md are reserved for the initial bootstrap of a new domain.
+
+Domain naming: before creating a new domain (which requires first writing docs/spec/domains/<new>/{requirements,design}.md), list docs/spec/domains/ and reuse an existing name if a sensible match exists. New domain creation is recorded in one line in proposal.md — no halting to ask.
+
+Returns the job dir and per-domain id allocations.`,
     args: {
       slug: z
         .string()
-        .describe('Kebab-case slug for the change, e.g. "user-profile-edit".'),
-      summary: z
-        .string()
-        .describe('One-line summary of why this change is being proposed.'),
+        .describe('Kebab-case slug for the job, e.g. "user-profile-edit".'),
+      summary: z.string().describe('One-line summary of the change.'),
+      domains: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Domains touched by this job. Each must already exist under docs/spec/domains/. Pre-allocates one REQ + one DES id per domain.',
+        ),
       spec_dir: z
         .string()
         .optional()
@@ -37,19 +45,27 @@ Returns the allocated IDs and the change directory path.`,
         typeof args.spec_dir === 'string' && args.spec_dir
           ? args.spec_dir
           : DEFAULT_SPEC_DIR;
-      const r = proposeChange(dir, args.slug, args.summary);
-      return `proposed ${r.slug} at ${r.changeDir}; next REQ=${r.nextReqId}, DES=${r.nextDesId}`;
+      const r = proposeJob(dir, args.slug, args.summary, {
+        domains: args.domains,
+      });
+      const allocSummary =
+        Object.entries(r.allocations)
+          .map(([d, a]) => `${d}:${a.req}/${a.des}`)
+          .join(', ') || '(none)';
+      return `proposed ${r.slug} at ${r.jobDir}; allocations: ${allocSummary}`;
     },
   });
 
   const spec_merge = tool({
-    description: `Merge a change's delta-*.md files into the trunk requirements.md/design.md, then regenerate trace.md.
+    description: `Distribute a job's delta sections back to their target domain trunks, then regenerate affected traces.
 
-Purely additive in v1: refuses if any REQ/DES ID already exists in the trunk. Call this after @oracle approves the change at output review. Follow immediately with spec_archive.
+Each delta heading must be fully qualified ("## <domain>/REQ-N: ..." or "## <domain>/DES-N: ..."). Sections are grouped by domain prefix and appended to docs/spec/domains/<d>/{requirements,design}.md. Refuses on any id collision in any target domain trunk.
 
-Returns the list of merged IDs.`,
+After successful merge, regenerates each affected domain's trace.md AND the job's own trace.md. Follow immediately with spec_archive to move the job into archive/.
+
+Returns the list of merged ids and affected domains.`,
     args: {
-      slug: z.string().describe('Slug of the change to merge.'),
+      slug: z.string().describe('Slug of the job to merge.'),
       spec_dir: z
         .string()
         .optional()
@@ -60,21 +76,22 @@ Returns the list of merged IDs.`,
         typeof args.spec_dir === 'string' && args.spec_dir
           ? args.spec_dir
           : DEFAULT_SPEC_DIR;
-      const r = mergeChange(dir, args.slug);
+      const r = mergeJob(dir, args.slug);
       const reqs = r.mergedReqIds.join(', ') || '(none)';
       const dess = r.mergedDesIds.join(', ') || '(none)';
-      return `merged ${args.slug}: REQ=[${reqs}] DES=[${dess}]; trace regenerated`;
+      const doms = r.affectedDomains.join(', ') || '(none)';
+      return `merged ${args.slug}: domains=[${doms}] REQ=[${reqs}] DES=[${dess}]`;
     },
   });
 
   const spec_archive = tool({
-    description: `Move docs/spec/changes/<slug>/ into docs/spec/archive/YYYY-MM-DD-<slug>/.
+    description: `Move docs/spec/jobs/<slug>/ to docs/spec/archive/YYYY-MM-DD-<slug>/.
 
-Use as the immediate next step after spec_merge succeeds. Atomic rename; no copy. Refuses if the target archive path already exists (same slug merged twice in one day).
+The archived job (including its trace.md) is the immutable historical snapshot of the change. Refuses if the target archive path already exists (same slug archived twice in one day).
 
-Returns the resulting archive path.`,
+Use as the immediate next step after spec_merge.`,
     args: {
-      slug: z.string().describe('Slug of the change to archive.'),
+      slug: z.string().describe('Slug of the job to archive.'),
       spec_dir: z
         .string()
         .optional()
@@ -85,7 +102,7 @@ Returns the resulting archive path.`,
         typeof args.spec_dir === 'string' && args.spec_dir
           ? args.spec_dir
           : DEFAULT_SPEC_DIR;
-      const r = archiveChange(dir, args.slug);
+      const r = archiveJob(dir, args.slug);
       return `archived ${args.slug} at ${r.archivePath}`;
     },
   });

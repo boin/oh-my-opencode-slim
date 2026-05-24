@@ -7,29 +7,35 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { regenerateTrace } from '../trace/io';
-import { extractIds, extractSections } from '../trace/parser';
+import { regenerateDomainTrace, regenerateJobTrace } from '../trace/io';
+import { extractIds, extractSections, parseQualifiedId } from '../trace/parser';
 
-// Invariants enforced by this module (do not break without re-deriving):
-//   1. spec_archive only runs after spec_merge succeeds, so trunk
-//      requirements.md / design.md subsume every ID that ever lived in
-//      archive/. Therefore nextId() can safely ignore archive/ when
-//      computing the next available REQ/DES — trunk is the upper bound.
-//   2. Slug reuse across days is allowed (archive paths are date-prefixed,
-//      so collisions across runs are impossible). Same-day reuse is
-//      refused by spec_archive.
-//   3. merge is purely additive in v1. Editing an existing REQ/DES
-//      requires a future spec_amend tool; until then mergeChange refuses
-//      on any trunk collision.
+// Invariants:
+//   1. Domain spec is the source of truth. Job specs are change containers
+//      that distribute back to domains on merge, then archive whole.
+//   2. Ids are domain-scoped: auth/REQ-1 and payment/REQ-1 coexist.
+//   3. nextId allocation reads domain trunk + every open job's deltas to
+//      avoid collision across concurrent jobs.
+//   4. merge is additive only; refuses on collision in any target domain.
+//   5. archive is a whole-dir rename; archived jobs are immutable history.
+
+export interface DomainAllocation {
+  req: string;
+  des: string;
+}
+
+export interface ProposeOptions {
+  domains?: string[];
+}
 
 export interface ProposeResult {
   slug: string;
-  changeDir: string;
-  nextReqId: string;
-  nextDesId: string;
+  jobDir: string;
+  allocations: Record<string, DomainAllocation>;
 }
 
 export interface MergeResult {
+  affectedDomains: string[];
   mergedReqIds: string[];
   mergedDesIds: string[];
 }
@@ -38,87 +44,155 @@ export interface ArchiveResult {
   archivePath: string;
 }
 
-function changesDir(specDir: string): string {
-  return join(specDir, 'changes');
+// --- paths ---
+
+function jobsBase(specDir: string): string {
+  return join(specDir, 'jobs');
 }
 
-function archiveDir(specDir: string): string {
+function jobDir(specDir: string, slug: string): string {
+  return join(jobsBase(specDir), slug);
+}
+
+function domainsBase(specDir: string): string {
+  return join(specDir, 'domains');
+}
+
+function domainDir(specDir: string, domain: string): string {
+  return join(domainsBase(specDir), domain);
+}
+
+function archiveBase(specDir: string): string {
   return join(specDir, 'archive');
 }
 
-function listOpenChangeSlugs(specDir: string): string[] {
-  const dir = changesDir(specDir);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
+// --- introspection ---
+
+function listOpenJobSlugs(specDir: string): string[] {
+  const base = jobsBase(specDir);
+  if (!existsSync(base)) return [];
+  return readdirSync(base, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => e.name);
 }
 
+function listDomains(specDir: string): string[] {
+  const base = domainsBase(specDir);
+  if (!existsSync(base)) return [];
+  return readdirSync(base, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+}
+
+function assertDomainExists(specDir: string, domain: string): void {
+  if (!existsSync(domainDir(specDir, domain))) {
+    throw new Error(
+      `domain '${domain}' not found at ${domainDir(specDir, domain)}; create the domain triad first`,
+    );
+  }
+}
+
 function collectReservedIds(
   specDir: string,
+  domain: string,
   prefix: 'REQ' | 'DES',
 ): Set<string> {
   const reserved = new Set<string>();
   const trunkFile = prefix === 'REQ' ? 'requirements.md' : 'design.md';
-  const trunkPath = join(specDir, trunkFile);
+  const trunkPath = join(domainDir(specDir, domain), trunkFile);
   if (existsSync(trunkPath)) {
     for (const id of extractIds(readFileSync(trunkPath, 'utf8'), prefix)) {
-      reserved.add(id);
+      const parsed = parseQualifiedId(id);
+      if (parsed?.domain === domain) reserved.add(id);
     }
   }
   const deltaFile =
     prefix === 'REQ' ? 'delta-requirements.md' : 'delta-design.md';
-  for (const slug of listOpenChangeSlugs(specDir)) {
-    const p = join(changesDir(specDir), slug, deltaFile);
+  for (const slug of listOpenJobSlugs(specDir)) {
+    const p = join(jobDir(specDir, slug), deltaFile);
     if (!existsSync(p)) continue;
     for (const id of extractIds(readFileSync(p, 'utf8'), prefix)) {
-      reserved.add(id);
+      const parsed = parseQualifiedId(id);
+      if (parsed?.domain === domain) reserved.add(id);
     }
   }
   return reserved;
 }
 
-function nextId(reserved: Set<string>, prefix: 'REQ' | 'DES'): string {
+function nextId(
+  reserved: Set<string>,
+  domain: string,
+  prefix: 'REQ' | 'DES',
+): string {
   let n = 1;
   for (const id of reserved) {
-    const m = id.match(/^(?:REQ|DES)-(\d+)$/);
-    if (m) {
-      const v = Number.parseInt(m[1], 10);
-      if (v >= n) n = v + 1;
+    const parsed = parseQualifiedId(id);
+    if (parsed && parsed.domain === domain && parsed.prefix === prefix) {
+      if (parsed.n >= n) n = parsed.n + 1;
     }
   }
-  return `${prefix}-${String(n).padStart(3, '0')}`;
+  return `${domain}/${prefix}-${n}`;
 }
 
-export function proposeChange(
+// --- propose ---
+
+export function proposeJob(
   specDir: string,
   slug: string,
   summary: string,
+  options: ProposeOptions = {},
 ): ProposeResult {
-  if (!existsSync(join(specDir, 'requirements.md'))) {
-    throw new Error(
-      `requirements.md not found in ${specDir}; bootstrap the trunk triad first`,
-    );
-  }
-  const changeDir = join(changesDir(specDir), slug);
-  if (existsSync(changeDir)) {
-    throw new Error(`change ${slug} already exists at ${changeDir}`);
+  const dir = jobDir(specDir, slug);
+  if (existsSync(dir)) {
+    throw new Error(`job ${slug} already exists at ${dir}`);
   }
 
-  const nextReqId = nextId(collectReservedIds(specDir, 'REQ'), 'REQ');
-  const nextDesId = nextId(collectReservedIds(specDir, 'DES'), 'DES');
+  const domains = options.domains ?? [];
+  for (const d of domains) assertDomainExists(specDir, d);
 
-  mkdirSync(changeDir, { recursive: true });
+  const allocations: Record<string, DomainAllocation> = {};
+  for (const d of domains) {
+    allocations[d] = {
+      req: nextId(collectReservedIds(specDir, d, 'REQ'), d, 'REQ'),
+      des: nextId(collectReservedIds(specDir, d, 'DES'), d, 'DES'),
+    };
+  }
+
+  mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(changeDir, 'delta-requirements.md'),
-    `<!-- proposal: ${summary} -->\n\n## ${nextReqId}: <fill in>\n\n<requirement body>\n`,
-  );
-  writeFileSync(
-    join(changeDir, 'delta-design.md'),
-    `## ${nextDesId}: <fill in>\n\nRationale anchor: <REQ-N> [, REQ-M ...].\n\n<design body>\n`,
+    join(dir, 'proposal.md'),
+    `# Job: ${slug}\n\n${summary}\n\nDomains: ${domains.length ? domains.join(', ') : '(none declared at propose time)'}\n`,
   );
 
-  return { slug, changeDir, nextReqId, nextDesId };
+  const reqStubs = domains
+    .map((d) => `## ${allocations[d].req}: <fill in>\n\n<requirement body>\n`)
+    .join('\n');
+  const desStubs = domains
+    .map(
+      (d) =>
+        `## ${allocations[d].des}: <fill in>\n\nRationale anchor: ${allocations[d].req}.\n\n<design body>\n`,
+    )
+    .join('\n');
+  writeFileSync(join(dir, 'delta-requirements.md'), reqStubs);
+  writeFileSync(join(dir, 'delta-design.md'), desStubs);
+
+  return { slug, jobDir: dir, allocations };
+}
+
+// --- merge ---
+
+function groupSectionsByDomain(
+  sections: Array<{ id: string; body: string }>,
+): Map<string, Array<{ id: string; body: string }>> {
+  const out = new Map<string, Array<{ id: string; body: string }>>();
+  for (const s of sections) {
+    const parsed = parseQualifiedId(s.id);
+    if (!parsed) continue;
+    const list = out.get(parsed.domain) ?? [];
+    list.push(s);
+    out.set(parsed.domain, list);
+  }
+  return out;
 }
 
 function appendSections(
@@ -126,20 +200,22 @@ function appendSections(
   sections: Array<{ id: string; body: string }>,
 ): void {
   if (sections.length === 0) return;
-  const existing = readFileSync(trunkPath, 'utf8').trimEnd();
+  const existing = existsSync(trunkPath)
+    ? readFileSync(trunkPath, 'utf8').trimEnd()
+    : '';
   const appended = sections.map((s) => s.body).join('\n\n');
-  writeFileSync(trunkPath, `${existing}\n\n${appended}\n`, 'utf8');
+  const body = existing ? `${existing}\n\n${appended}\n` : `${appended}\n`;
+  writeFileSync(trunkPath, body, 'utf8');
 }
 
-export function mergeChange(specDir: string, slug: string): MergeResult {
-  const changeDir = join(changesDir(specDir), slug);
-  if (!existsSync(changeDir)) {
-    throw new Error(`change ${slug} not found at ${changeDir}`);
+export function mergeJob(specDir: string, slug: string): MergeResult {
+  const dir = jobDir(specDir, slug);
+  if (!existsSync(dir)) {
+    throw new Error(`job ${slug} not found at ${dir}`);
   }
 
-  const deltaReqPath = join(changeDir, 'delta-requirements.md');
-  const deltaDesPath = join(changeDir, 'delta-design.md');
-
+  const deltaReqPath = join(dir, 'delta-requirements.md');
+  const deltaDesPath = join(dir, 'delta-design.md');
   const deltaReq = existsSync(deltaReqPath)
     ? readFileSync(deltaReqPath, 'utf8')
     : '';
@@ -150,31 +226,63 @@ export function mergeChange(specDir: string, slug: string): MergeResult {
   const reqSections = extractSections(deltaReq, 'REQ');
   const desSections = extractSections(deltaDes, 'DES');
 
-  const trunkReq = readFileSync(join(specDir, 'requirements.md'), 'utf8');
-  const trunkDes = readFileSync(join(specDir, 'design.md'), 'utf8');
-  const trunkReqIds = new Set(extractIds(trunkReq, 'REQ'));
-  const trunkDesIds = new Set(extractIds(trunkDes, 'DES'));
+  const reqByDomain = groupSectionsByDomain(reqSections);
+  const desByDomain = groupSectionsByDomain(desSections);
+  const allDomains = new Set<string>([
+    ...reqByDomain.keys(),
+    ...desByDomain.keys(),
+  ]);
 
-  for (const s of reqSections) {
-    if (trunkReqIds.has(s.id)) {
-      throw new Error(`${s.id} already exists in trunk requirements.md`);
+  // Validate every referenced domain exists.
+  for (const d of allDomains) assertDomainExists(specDir, d);
+
+  // Collision check against each domain trunk.
+  for (const [domain, sections] of reqByDomain) {
+    const trunkPath = join(domainDir(specDir, domain), 'requirements.md');
+    const trunkIds = new Set(
+      extractIds(readFileSync(trunkPath, 'utf8'), 'REQ'),
+    );
+    for (const s of sections) {
+      if (trunkIds.has(s.id)) {
+        throw new Error(`${s.id} already exists in trunk ${trunkPath}`);
+      }
     }
   }
-  for (const s of desSections) {
-    if (trunkDesIds.has(s.id)) {
-      throw new Error(`${s.id} already exists in trunk design.md`);
+  for (const [domain, sections] of desByDomain) {
+    const trunkPath = join(domainDir(specDir, domain), 'design.md');
+    const trunkIds = new Set(
+      extractIds(readFileSync(trunkPath, 'utf8'), 'DES'),
+    );
+    for (const s of sections) {
+      if (trunkIds.has(s.id)) {
+        throw new Error(`${s.id} already exists in trunk ${trunkPath}`);
+      }
     }
   }
 
-  appendSections(join(specDir, 'requirements.md'), reqSections);
-  appendSections(join(specDir, 'design.md'), desSections);
-  regenerateTrace(specDir);
+  // Distribute.
+  for (const [domain, sections] of reqByDomain) {
+    appendSections(
+      join(domainDir(specDir, domain), 'requirements.md'),
+      sections,
+    );
+  }
+  for (const [domain, sections] of desByDomain) {
+    appendSections(join(domainDir(specDir, domain), 'design.md'), sections);
+  }
+
+  // Regenerate affected domain traces + job trace.
+  for (const d of allDomains) regenerateDomainTrace(specDir, d);
+  regenerateJobTrace(specDir, slug);
 
   return {
+    affectedDomains: [...allDomains],
     mergedReqIds: reqSections.map((s) => s.id),
     mergedDesIds: desSections.map((s) => s.id),
   };
 }
+
+// --- archive ---
 
 function todayStamp(): string {
   const d = new Date();
@@ -184,20 +292,21 @@ function todayStamp(): string {
   return `${y}-${m}-${day}`;
 }
 
-export function archiveChange(specDir: string, slug: string): ArchiveResult {
-  const changeDir = join(changesDir(specDir), slug);
-  if (!existsSync(changeDir)) {
-    throw new Error(`change ${slug} not found at ${changeDir}`);
+export function archiveJob(specDir: string, slug: string): ArchiveResult {
+  const dir = jobDir(specDir, slug);
+  if (!existsSync(dir)) {
+    throw new Error(`job ${slug} not found at ${dir}`);
   }
-  const stamp = todayStamp();
-  const archiveBase = archiveDir(specDir);
-  if (!existsSync(archiveBase)) {
-    mkdirSync(archiveBase, { recursive: true });
-  }
-  const archivePath = join(archiveBase, `${stamp}-${slug}`);
+  const base = archiveBase(specDir);
+  if (!existsSync(base)) mkdirSync(base, { recursive: true });
+  const archivePath = join(base, `${todayStamp()}-${slug}`);
   if (existsSync(archivePath)) {
     throw new Error(`archive ${archivePath} already exists`);
   }
-  renameSync(changeDir, archivePath);
+  renameSync(dir, archivePath);
   return { archivePath };
 }
+
+// Re-exports for callers needing domain discovery (e.g. migration scripts,
+// status tools, future spec_status command).
+export { listDomains, listOpenJobSlugs };

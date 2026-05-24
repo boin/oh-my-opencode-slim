@@ -1,4 +1,5 @@
 import type { AgentConfig } from '@opencode-ai/sdk/v2';
+import { buildSddTddAppendBlock } from './append-prompt';
 
 export interface AgentDefinition {
   name: string;
@@ -274,7 +275,18 @@ export function createOrchestratorAgent(
   disabledAgents?: Set<string>,
 ): AgentDefinition {
   const basePrompt = buildOrchestratorPrompt(disabledAgents);
-  const prompt = resolvePrompt(basePrompt, customPrompt, customAppendPrompt);
+  const sddTddBlock = buildSddTddAppendBlock();
+  // Fork default: SDD/TDD/memex/routing block is injected after the base
+  // prompt, before any user-supplied customAppendPrompt. customPrompt
+  // (replace-all override) still takes precedence over both.
+  const baseWithDiscipline = customPrompt
+    ? basePrompt
+    : `${basePrompt}\n\n${sddTddBlock}`;
+  const prompt = resolvePrompt(
+    baseWithDiscipline,
+    customPrompt,
+    customAppendPrompt,
+  );
 
   const definition: AgentDefinition = {
     name: 'orchestrator',

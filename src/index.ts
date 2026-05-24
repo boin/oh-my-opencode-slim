@@ -28,6 +28,7 @@ import {
   createSessionGoalHook,
   createTaskSessionManagerHook,
   createTodoContinuationHook,
+  createTraceFreshnessHook,
   ForegroundFallbackManager,
 } from './hooks';
 import { processImageAttachments } from './hooks/image-hook';
@@ -44,9 +45,11 @@ import {
   createCouncilTool,
   createPresetManager,
   createReadSessionTool,
+  createSpecTools,
   createSubtaskCommandManager,
   createSubtaskState,
   createSubtaskTool,
+  createTraceTool,
   createWebfetchTool,
 } from './tools';
 import { recordTuiAgentModel, recordTuiAgentModels } from './tui-state';
@@ -127,6 +130,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let multiplexerSessionManager: MultiplexerSessionManager;
   let autoUpdateChecker: ReturnType<typeof createAutoUpdateCheckerHook>;
   let phaseReminderHook: ReturnType<typeof createPhaseReminderHook>;
+  let traceFreshnessHook: ReturnType<typeof createTraceFreshnessHook>;
   let filterAvailableSkillsHook: ReturnType<
     typeof createFilterAvailableSkillsHook
   >;
@@ -272,6 +276,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     // Initialize phase reminder hook for workflow compliance
     phaseReminderHook = createPhaseReminderHook();
 
+    // Initialize trace freshness hook: auto-regenerate docs/spec/trace.md
+    // when stale before each orchestrator turn (REQ-005, DES-002).
+    traceFreshnessHook = createTraceFreshnessHook();
+
     // Initialize available skills filter hook
     filterAvailableSkillsHook = createFilterAvailableSkillsHook(ctx, config);
 
@@ -397,6 +405,8 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
     tool: {
       ...councilTools,
+      ...createTraceTool(ctx),
+      ...createSpecTools(ctx),
       webfetch,
       ...todoContinuationHook.tool,
       ast_grep_search,
@@ -1107,6 +1117,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         typedOutput,
       );
       await phaseReminderHook['experimental.chat.messages.transform'](
+        input,
+        typedOutput,
+      );
+      await traceFreshnessHook['experimental.chat.messages.transform'](
         input,
         typedOutput,
       );

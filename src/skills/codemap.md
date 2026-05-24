@@ -18,6 +18,7 @@
   - `src/skills/codemap/` (command-style repository mapping skill)
   - `src/skills/clonedeps/` (workflow skill for dependency source mirroring)
   - `src/skills/simplify/` (readability/refactor guidance skill)
+  - `src/skills/grill/` (SDD self-interrogation workflow skill)
 - Files are considered static runtime payload. No plugin TS module in `src/` imports these files directly; they
   are loaded by OpenCode via filesystem installation.
 

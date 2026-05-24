@@ -6,7 +6,7 @@ Audience: cold-session AI agents resuming work without conversation history.
 
 ---
 
-## REQ-001: Workflow layering
+## sdd-workflow/REQ-001: Workflow layering
 
 The fork MUST keep two layers separate:
 
@@ -15,7 +15,7 @@ The fork MUST keep two layers separate:
 
 The generic layer MAY call into the domain layer via skill auto-discovery. The generic layer MUST NOT contain domain-specific routing logic.
 
-## REQ-002: Spec triad (SDD)
+## sdd-workflow/REQ-002: Spec triad (SDD)
 
 Every non-trivial task MUST produce three artifacts in the target project's `docs/spec/` directory:
 
@@ -25,7 +25,7 @@ Every non-trivial task MUST produce three artifacts in the target project's `doc
 
 Both `requirements.md` and `design.md` are concise and self-contained for cold-agent handoff. Background and rejected alternatives MAY live in memex (project-tagged) instead of bloating the triad.
 
-## REQ-003: Grill-then-spec order
+## sdd-workflow/REQ-003: Grill-then-spec order
 
 For any new task:
 
@@ -36,13 +36,13 @@ For any new task:
 
 If grill cannot converge, halt. Do not enter execution. Convergence criteria: (mechanical) all three files exist with required sections; (human) explicit "go" from user.
 
-## REQ-004: Spec authorship and amendment
+## sdd-workflow/REQ-004: Spec authorship and amendment
 
 - The grill agent owns initial spec authorship.
 - During execution, any agent MAY amend `requirements.md` when it discovers genuine gaps.
 - Any amendment MUST trigger affected-only re-run: only the impacted `design.md` sections and `tasks` are regenerated, not the full pipeline. This requires `trace.md` to stay accurate.
 
-## REQ-005: Trace maintenance
+## sdd-workflow/REQ-005: Trace maintenance
 
 `trace.md` is a flat ID mapping (no rationale).
 
@@ -51,7 +51,7 @@ If grill cannot converge, halt. Do not enter execution. Convergence criteria: (m
 - If trace is stale at execution entry, orchestrator re-runs trace generation, then proceeds without user confirmation.
 - Trace exists so cold sessions can follow established work without conversation history. It is not a human-review artifact.
 
-## REQ-006: Model role split
+## sdd-workflow/REQ-006: Model role split
 
 - **Opus 4.7** runs as `orchestrator`, `oracle`, and `council` synthesizer.
 - **GPT-5.5** runs as `librarian`, `explorer`, `designer`, `fixer`.
@@ -62,7 +62,7 @@ Role enforcement:
 - Opus MUST NOT write implementation code directly. Delegate to `@fixer`.
 - GPT fixer MAY make small local decisions when spec is silent. Architectural divergence is caught at output review.
 
-## REQ-007: Two review gates
+## sdd-workflow/REQ-007: Two review gates
 
 Replace the natural 4-point review schedule with 2 consolidated gates to control Opus cost:
 
@@ -71,14 +71,14 @@ Replace the natural 4-point review schedule with 2 consolidated gates to control
 
 If output review finds divergence: GPT fixer redoes the work with brief guidance from Opus. Opus does not edit code directly.
 
-## REQ-008: Persistent lessons via memex
+## sdd-workflow/REQ-008: Persistent lessons via memex
 
 - `oracle` is the sole memex **writer**. Writes occur only at the two review gates.
 - `orchestrator` is the memex **reader**: before launching each subtask, it calls `recall_memories` with the subtask topic + project tag and injects the top results into the subtask prompt.
 - Two write categories: `pitfall` (divergence found at review) and `pattern` (good practice discovered).
 - Project scoping: oracle infers project identity from git remote / repo root / context. Memories carry project tag when inferable, global tag when cross-project.
 
-## REQ-009: TDD execution discipline
+## sdd-workflow/REQ-009: TDD execution discipline
 
 - Default: strict TDD (red → green → refactor), enforced by **inlined distilled rules** in the orchestrator prompt (see REQ-010 for source/rationale).
 - The discipline is held by `orchestrator` (Opus), not by `fixer`. Opus decomposes a TDD cycle into three narrow subtasks (write failing test → implement to green → refactor).
@@ -87,7 +87,7 @@ If output review finds divergence: GPT fixer redoes the work with brief guidance
   - Test infrastructure absent (no test runner, no test directory)
 - If test infrastructure is missing, run a one-shot "build infra" subtask first, record the setup in `design.md` under a `Test infrastructure` section, then return to TDD.
 
-## REQ-010: Inlined discipline (distilled from superpowers)
+## sdd-workflow/REQ-010: Inlined discipline (distilled from superpowers)
 
 This fork does NOT depend on the `superpowers` plugin at runtime. Rationale: the `superpowers` skill style (long checklists, red-flag tables, 9-step procedures) is optimized for weaker models and becomes redundant or token-wasteful on Opus 4.7, which already exhibits strong native discipline.
 
@@ -107,7 +107,7 @@ Skills explicitly NOT distilled (handled by slim or our own design):
 
 Distilled rules MUST stay under 200 lines total when embedded. Periodically re-check upstream `superpowers` for new high-value skills worth distilling, but pull rules manually rather than runtime-loading the plugin.
 
-## REQ-011: Routing for change strategy
+## sdd-workflow/REQ-011: Routing for change strategy
 
 Orchestrator auto-selects one of three routes per task:
 
@@ -117,7 +117,7 @@ Orchestrator auto-selects one of three routes per task:
 
 Worktree creation uses `superpowers:using-git-worktrees`. PR creation and branch naming are delegated to domain-layer skills.
 
-## REQ-012: Cold-session self-containment
+## sdd-workflow/REQ-012: Cold-session self-containment
 
 A fresh agent session resuming work MUST be able to proceed using only:
 
@@ -127,7 +127,7 @@ A fresh agent session resuming work MUST be able to proceed using only:
 
 When the cold agent cannot reach high-confidence inference from the above, it MUST pause and ask the user rather than guess. Acceptable interruption frequency: 1-2 questions per cold handoff per project.
 
-## REQ-013: Trial window and success metric
+## sdd-workflow/REQ-013: Trial window and success metric
 
 Self-imposed evaluation window: 2 weeks from first real task.
 
@@ -138,7 +138,7 @@ Success criteria:
 
 If neither holds after 2 weeks, revert.
 
-## REQ-014: Spec change proposals as deltas, not in-place edits
+## sdd-workflow/REQ-014: Spec change proposals as deltas, not in-place edits
 
 After the initial triad (`requirements.md` + `design.md` + `trace.md`) exists, every subsequent grill / spec evolution MUST produce a **change proposal** in `docs/spec/changes/<slug>/` containing `delta-requirements.md` and `delta-design.md`, rather than editing the main triad files directly.
 
@@ -150,7 +150,7 @@ Inspired by OpenSpec (`openspec/changes/<feat>/`) but adapted to this fork's exi
 
 Source: OpenSpec evaluation, 2026-05-24.
 
-## REQ-015: Archive merged changes
+## sdd-workflow/REQ-015: Archive merged changes
 
 When a spec_merge succeeds, the change directory MUST be moved (not copied) from `docs/spec/changes/<slug>/` to `docs/spec/archive/YYYY-MM-DD-<slug>/`. The date is the merge date in the local timezone.
 
@@ -172,7 +172,7 @@ Source: OpenSpec evaluation, 2026-05-24.
 - Rollback procedure
 - Observability / alerting
 
-## REQ-016: Installation guide must front-load the fork-vs-upstream verification gate
+## sdd-workflow/REQ-016: Installation guide must front-load the fork-vs-upstream verification gate
 
 Blind installs by an LLM agent will often land on the upstream NPM package
 of the same name (`oh-my-opencode-slim`) and silently miss the fork's
@@ -186,7 +186,7 @@ The verification step MUST appear before any preset / memex / spec-dir
 configuration, because none of those have meaning if the loaded plugin
 is upstream.
 
-## REQ-017: Preset documentation must specify all council edges, not only the median
+## sdd-workflow/REQ-017: Preset documentation must specify all council edges, not only the median
 
 The fork's council agent is a three-edge structure (alpha / beta / gamma).
 The installation guide currently shows only the top-level `council.model`
@@ -195,7 +195,7 @@ two-edge council that silently falls back at runtime. The guide MUST
 include a concrete `council.gamma` example (with a real model id) and
 state that omitting `gamma` is a configuration error, not a default.
 
-## REQ-018: Workflow documentation must define when the agent may stop to ask the user
+## sdd-workflow/REQ-018: Workflow documentation must define when the agent may stop to ask the user
 
 Without an explicit interaction discipline, the orchestrator and grill
 skill tend to escalate decisions the agent could make itself. The
@@ -205,7 +205,7 @@ list is the agent's call. The grill skill's phase-4 anti-patterns MUST
 be hardened to refuse escalations that grep / file-read / doc-fetch
 could have resolved in phase 3.
 
-## REQ-019: AGENTS.md must document the local-plugin dev loop
+## sdd-workflow/REQ-019: AGENTS.md must document the local-plugin dev loop
 
 When the OpenCode `plugin` array points at a local checkout of this
 repo (the recommended setup for fork-development), agents editing
@@ -222,3 +222,27 @@ flag the two non-obvious traps:
 The doc MUST also note that `bun run build:plugin` is the right
 script for a fast iteration loop (it skips CLI build, type
 declarations, and schema generation that `bun run build` adds).
+
+## sdd-workflow/REQ-020: Spec layout is two-tier (domain + job)
+
+Spec lives under `docs/spec/domains/<domain>/{requirements,design,trace}.md`
+(long-lived, per-subsystem) and `docs/spec/jobs/<slug>/` (one-shot
+change container, MAY span multiple domains). REQ/DES ids are
+domain-scoped: heading form `## <domain>/REQ-N:` and `## <domain>/DES-N:`.
+On merge, job deltas distribute back to each target domain trunk; on
+archive, the whole job dir moves to `archive/YYYY-MM-DD-<slug>/` as
+an immutable snapshot.
+
+Anchors in domain design.md MAY be bare (`Rationale anchor: REQ-3`,
+resolved against the file's domain). Anchors in job delta-design.md
+MUST be fully qualified (`Rationale anchor: auth/REQ-3, payment/REQ-1`).
+
+Domain naming is free-form kebab-case enforced only by the heading
+regex; reuse-vs-new is an agent behavior rule documented in the grill
+skill, not a runtime check.
+
+Legacy single-trunk layout (`docs/spec/{requirements,design}.md` at
+the spec root) is migrated by `scripts/migrate-spec-to-domains.ts`
+into `domains/<chosen-domain>/`, with `changes/<slug>/` re-homed to
+`jobs/<slug>/`. The script is idempotent (`.migrated-to-domains`
+marker) and preserves legacy files as `*.legacy` for review.

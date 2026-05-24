@@ -1,19 +1,39 @@
+// Qualified id heading parser. Headings MUST be of the form
+//   ## <domain>/REQ-N: <title>
+//   ## <domain>/DES-N: <title>
+// where <domain> is kebab-case ([a-z][a-z0-9-]*).
+//
+// Legacy unqualified headings (## REQ-1: ...) are intentionally ignored —
+// the codebase has flag-day cut over to the qualified form; legacy specs
+// must be migrated via scripts/migrate-spec-to-domains.ts before tools
+// will see them.
+
+const DOMAIN_RE_SRC = '[a-z][a-z0-9-]*';
+
 const HEADING_ID_RE = (prefix: string) =>
-  new RegExp(`^##\\s+(${prefix}-\\d+):`, 'gm');
+  new RegExp(`^##\\s+(${DOMAIN_RE_SRC}\\/${prefix}-\\d+):`, 'gm');
 
 export interface Section {
   id: string;
   body: string;
 }
 
-/**
- * Split a markdown document into level-2 sections keyed by `PREFIX-NNN:`
- * heading. Each section's `body` includes the heading line and everything
- * up to (but not including) the next matching heading, right-trimmed.
- *
- * Used by trace generation, ID extraction, and the spec_propose/merge
- * tools — keep this as the single source of truth for section parsing.
- */
+export interface ParsedId {
+  domain: string;
+  prefix: 'REQ' | 'DES';
+  n: number;
+}
+
+export function parseQualifiedId(id: string): ParsedId | null {
+  const m = id.match(new RegExp(`^(${DOMAIN_RE_SRC})\\/(REQ|DES)-(\\d+)$`));
+  if (!m) return null;
+  return {
+    domain: m[1],
+    prefix: m[2] as 'REQ' | 'DES',
+    n: Number.parseInt(m[3], 10),
+  };
+}
+
 export function extractSections(markdown: string, prefix: string): Section[] {
   const re = HEADING_ID_RE(prefix);
   const heads: Array<{ id: string; start: number }> = [];
@@ -35,15 +55,32 @@ export function extractIds(markdown: string, prefix: string): string[] {
   return extractSections(markdown, prefix).map((s) => s.id);
 }
 
-export function extractAnchors(markdown: string): Record<string, string[]> {
+export interface AnchorOptions {
+  /** If set, bare anchors (REQ-N without domain/) are qualified against
+   * this domain. If unset, bare anchors are silently dropped. */
+  defaultDomain?: string;
+}
+
+export function extractAnchors(
+  markdown: string,
+  options: AnchorOptions = {},
+): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const section of extractSections(markdown, 'DES')) {
     const anchorMatch = section.body.match(/Rationale anchor:\s+([^.\n]+)/);
     if (!anchorMatch) continue;
-    const reqIds = anchorMatch[1]
-      .split(/,\s*/)
-      .map((s) => s.trim())
-      .filter((s) => /^REQ-\d+$/.test(s));
+    const reqIds: string[] = [];
+    for (const raw of anchorMatch[1].split(/,\s*/)) {
+      const tok = raw.trim();
+      if (parseQualifiedId(tok)?.prefix === 'REQ') {
+        reqIds.push(tok);
+      } else if (/^REQ-\d+$/.test(tok)) {
+        if (options.defaultDomain) {
+          reqIds.push(`${options.defaultDomain}/${tok}`);
+        }
+        // else: drop silently
+      }
+    }
     if (reqIds.length > 0) {
       result[section.id] = reqIds;
     }

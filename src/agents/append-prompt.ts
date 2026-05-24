@@ -1,47 +1,36 @@
 const SDD_WORKFLOW = `## SDD workflow (inlined)
 
+Layout (two-tier):
+- \`docs/spec/domains/<domain>/{requirements,design,trace}.md\` — long-lived per-subsystem spec.
+- \`docs/spec/jobs/<slug>/\` — one-shot change container, MAY span multiple domains.
+- \`docs/spec/archive/YYYY-MM-DD-<slug>/\` — immutable job snapshots.
+
+Heading format is strict: \`## <domain>/REQ-N: <title>\` and \`## <domain>/DES-N: <title>\` (kebab-case domain, trailing colon required). Anchors in job deltas MUST be fully qualified (\`Rationale anchor: auth/REQ-3\`); anchors in domain design.md MAY be bare and resolve to the file's domain.
+
 For any non-trivial task (touches >1 file OR introduces new behavior):
 
-1. **Triad check** — does \`docs/spec/requirements.md\` exist?
-   - **No**  → Enter grill mode. Self-interrogate the user's idea: list
-     assumptions, risks, self-answerable questions (resolve via @explorer /
-     @librarian), human-decision questions (route via /interview). After
-     convergence, write \`requirements.md\` then \`design.md\` directly
-     (bootstrap path; no delta). Halt and ask the user if grill cannot
-     converge after 3 rounds.
-   - **Yes** → Open a change proposal: call \`spec_propose\` with a
-     kebab-case slug and one-line summary. Run grill against the generated
-     \`docs/spec/changes/<slug>/delta-*.md\` files only. Trunk
-     \`requirements.md\` / \`design.md\` are read-only during grill. Also
-     run \`trace_regenerate\` with \`check_only: true\`; if stale, run
-     without \`check_only\` to refresh before proceeding.
+1. **Layout check** — does \`docs/spec/domains/\` exist?
+   - **No, but legacy \`docs/spec/requirements.md\` exists** → run \`scripts/migrate-spec-to-domains.ts --domain=<name>\` first. Pick \`<name>\` by reuse-first rule (see grill skill).
+   - **No, fresh repo** → enter grill mode to bootstrap a domain. Pick domain name, write \`docs/spec/domains/<domain>/{requirements,design}.md\` directly, then \`trace_regenerate domain=<domain>\`.
+   - **Yes** → default path is to open a job. Decide which domain(s) the change touches (reuse-first; record one-line rationale in proposal.md if creating a new domain — no halting to ask). Call \`spec_propose slug=<slug> summary=<...> domains=[...]\`. Run grill against \`jobs/<slug>/delta-*.md\` only. Domain trunks are read-only during grill. Also run \`trace_regenerate check_only=true\`; if stale, refresh.
 
-2. **Entry review** — delegate to @oracle: confirm the triad (or the open
-   change deltas) + trace are mutually consistent. Block on divergence.
+2. **Entry review** — delegate to @oracle: confirm domain triads (or open job deltas) + traces are mutually consistent. Block on divergence.
 
-3. **Decompose** — break work into tasks, each linked to a DES-* anchor.
+3. **Decompose** — break work into tasks, each linked to a \`<domain>/DES-N\` anchor.
 
 4. **Route + execute** — see Routing block. TDD per Distilled rules.
 
-5. **Output review** — after the subtask batch, delegate to @oracle: review
-   the accumulated diff against trace anchors. If divergence, send @fixer
-   back to redo with brief guidance. On approval, @oracle MUST also:
-   - call \`spec_merge slug=<slug>\` (skip if bootstrap path with no
-     delta). The tool appends delta sections to trunk and refreshes
-     \`trace.md\` as a side effect — do not call \`trace_regenerate\`
-     separately.
-   - call \`spec_archive slug=<slug>\` immediately after.
+5. **Output review** — after the subtask batch, delegate to @oracle: review the accumulated diff against trace anchors. If divergence, send @fixer back with brief guidance. On approval, @oracle MUST also:
+   - call \`spec_merge slug=<slug>\` (skip if bootstrap path with no job). The tool distributes deltas back to each affected domain trunk and regenerates affected traces — do not call \`trace_regenerate\` separately.
+   - call \`spec_archive slug=<slug>\` immediately after. Whole job dir is moved to archive.
    - persist lessons via \`save_memory\` (see Memex contract).
 
 Trace freshness paths (do not double-call):
-- Tool path: \`spec_merge\` regenerates trace as part of merge.
-- Hook path: \`trace-freshness\` watches mtimes and regenerates on next
-  orchestrator turn when trunk files were edited by hand.
-- Manual path: call \`trace_regenerate\` only if you suspect both paths
-  missed (rare).
+- Tool path: \`spec_merge\` regenerates affected traces as part of merge.
+- Hook path: \`trace-freshness\` walks all domain triads + open jobs and regenerates whatever is stale on the next orchestrator turn.
+- Manual path: \`trace_regenerate\` (no args = all domains; \`domain=<d>\` for one; \`job=<slug>\` for one job).
 
-Trivial tasks (typo / single-line / no spec link) skip steps 1-3 and 5 and
-go straight to direct-commit per Routing.`;
+Trivial tasks (typo / single-line / no spec link) skip steps 1-3 and 5 and go straight to direct-commit per Routing.`;
 
 const ROUTING = `## Routing (three change strategies)
 

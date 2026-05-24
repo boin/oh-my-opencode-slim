@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
+  mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
-  statSync,
-  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,10 +23,19 @@ function userMsg(text: string, agent = 'orchestrator'): Message {
   return { info: { role: 'user', agent }, parts: [{ type: 'text', text }] };
 }
 
+function writeDomain(specDir: string, name: string, req: string, des: string) {
+  const d = join(specDir, 'domains', name);
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, 'requirements.md'), req);
+  writeFileSync(join(d, 'design.md'), des);
+}
+
 let dir: string;
+let spec: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'trace-fresh-'));
+  spec = join(dir, 'spec');
 });
 
 afterEach(() => {
@@ -45,12 +54,11 @@ describe('trace-freshness hook', () => {
   });
 
   test('no-op when last message is from non-orchestrator agent', async () => {
-    const spec = join(dir, 'spec');
-    require('node:fs').mkdirSync(spec);
-    writeFileSync(join(spec, 'requirements.md'), '## REQ-001: x\n');
-    writeFileSync(
-      join(spec, 'design.md'),
-      '## DES-001: y\nRationale anchor: REQ-001.\n',
+    writeDomain(
+      spec,
+      'auth',
+      '## auth/REQ-1: x',
+      '## auth/DES-1: y\n\nRationale anchor: REQ-1.',
     );
     const hook = createTraceFreshnessHook({ specDir: spec });
     const messages: Message[] = [userMsg('hi', 'fixer')];
@@ -61,18 +69,14 @@ describe('trace-freshness hook', () => {
     expect(messages[0].parts).toHaveLength(1);
   });
 
-  test('regenerates and appends notice when trace is stale', async () => {
-    const spec = join(dir, 'spec');
-    require('node:fs').mkdirSync(spec);
-    writeFileSync(join(spec, 'requirements.md'), '## REQ-001: a\n');
-    writeFileSync(
-      join(spec, 'design.md'),
-      '## DES-001: b\nRationale anchor: REQ-001.\n',
+  test('regenerates and reports stale domain', async () => {
+    writeDomain(
+      spec,
+      'auth',
+      '## auth/REQ-1: a',
+      '## auth/DES-1: b\n\nRationale anchor: REQ-1.',
     );
-    // Pre-existing stale trace: mtime older than requirements.
-    writeFileSync(join(spec, 'trace.md'), 'stale\n');
-    const past = new Date(Date.now() - 60_000);
-    utimesSync(join(spec, 'trace.md'), past, past);
+    // No trace.md → stale.
 
     const hook = createTraceFreshnessHook({ specDir: spec });
     const messages: Message[] = [userMsg('continue')];
@@ -82,24 +86,52 @@ describe('trace-freshness hook', () => {
     );
 
     expect(messages[0].parts).toHaveLength(2);
-    expect(messages[0].parts[1].text).toContain('trace_regenerate: refreshed');
+    const notice = messages[0].parts[1].text ?? '';
+    expect(notice).toContain('trace_regenerate:');
+    expect(notice).toContain('domain:auth');
     expect(
-      require('node:fs').readFileSync(join(spec, 'trace.md'), 'utf8'),
-    ).toContain('REQ-001');
+      readFileSync(join(spec, 'domains', 'auth', 'trace.md'), 'utf8'),
+    ).toContain('auth/REQ-1');
   });
 
-  test('no-op when trace is up-to-date', async () => {
-    const spec = join(dir, 'spec');
-    require('node:fs').mkdirSync(spec);
-    writeFileSync(join(spec, 'requirements.md'), '## REQ-001: a\n');
-    writeFileSync(
-      join(spec, 'design.md'),
-      '## DES-001: b\nRationale anchor: REQ-001.\n',
+  test('reports stale job alongside domain in notice', async () => {
+    writeDomain(
+      spec,
+      'auth',
+      '## auth/REQ-1: a',
+      '## auth/DES-1: b\n\nRationale anchor: REQ-1.',
     );
-    // Make trace newer than sources.
-    writeFileSync(join(spec, 'trace.md'), 'fresh\n');
-    const future = new Date(Date.now() + 60_000);
-    utimesSync(join(spec, 'trace.md'), future, future);
+    const jobDir = join(spec, 'jobs', 'feat-x');
+    mkdirSync(jobDir, { recursive: true });
+    writeFileSync(join(jobDir, 'delta-requirements.md'), '## auth/REQ-2: new');
+    writeFileSync(
+      join(jobDir, 'delta-design.md'),
+      '## auth/DES-2: x\n\nRationale anchor: auth/REQ-2.',
+    );
+    // No job trace.md → stale.
+
+    const hook = createTraceFreshnessHook({ specDir: spec });
+    const messages: Message[] = [userMsg('continue')];
+    await hook['experimental.chat.messages.transform'](
+      {} as Record<string, never>,
+      { messages },
+    );
+
+    const notice = messages[0].parts[1].text ?? '';
+    expect(notice).toContain('domain:auth');
+    expect(notice).toContain('job:feat-x');
+  });
+
+  test('no-op when everything fresh', async () => {
+    writeDomain(
+      spec,
+      'auth',
+      '## auth/REQ-1: a',
+      '## auth/DES-1: b\n\nRationale anchor: REQ-1.',
+    );
+    // Pre-regenerate so it's fresh.
+    const { regenerateDomainTrace } = require('../../tools/trace/io');
+    regenerateDomainTrace(spec, 'auth');
 
     const hook = createTraceFreshnessHook({ specDir: spec });
     const messages: Message[] = [userMsg('continue')];
@@ -112,16 +144,12 @@ describe('trace-freshness hook', () => {
   });
 
   test('does not double-inject when notice already present', async () => {
-    const spec = join(dir, 'spec');
-    require('node:fs').mkdirSync(spec);
-    writeFileSync(join(spec, 'requirements.md'), '## REQ-001: a\n');
-    writeFileSync(
-      join(spec, 'design.md'),
-      '## DES-001: b\nRationale anchor: REQ-001.\n',
+    writeDomain(
+      spec,
+      'auth',
+      '## auth/REQ-1: a',
+      '## auth/DES-1: b\n\nRationale anchor: REQ-1.',
     );
-    writeFileSync(join(spec, 'trace.md'), 'stale\n');
-    const past = new Date(Date.now() - 60_000);
-    utimesSync(join(spec, 'trace.md'), past, past);
 
     const hook = createTraceFreshnessHook({ specDir: spec });
     const messages: Message[] = [userMsg('continue')];

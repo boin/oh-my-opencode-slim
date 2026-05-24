@@ -8,7 +8,7 @@ This document covers HOW. WHY lives in `requirements.md`.
 
 ---
 
-## DES-001: Repository layout for SDD artifacts
+## sdd-workflow/DES-001: Repository layout for SDD artifacts
 
 Target projects (the projects this fork is *used on*) place SDD artifacts in:
 
@@ -25,7 +25,7 @@ Rationale anchor: REQ-002.
 
 ---
 
-## DES-002: Distilled rules location
+## sdd-workflow/DES-002: Distilled rules location
 
 `docs/spec/distilled-rules.md` (this fork) holds the canonical text of the
 inlined discipline rules. The text is loaded at build time and injected into
@@ -38,7 +38,7 @@ Rationale anchor: REQ-010.
 
 ---
 
-## DES-003: Orchestrator prompt assembly
+## sdd-workflow/DES-003: Orchestrator prompt assembly
 
 Touched file: `src/agents/orchestrator.ts`.
 
@@ -57,7 +57,7 @@ Rationale anchor: REQ-006, REQ-010.
 
 ---
 
-## DES-004: SDD workflow block
+## sdd-workflow/DES-004: SDD workflow block
 
 Inlined into orchestrator append prompt. Pseudocode form:
 
@@ -81,7 +81,7 @@ Rationale anchor: REQ-003, REQ-007.
 
 ---
 
-## DES-005: Grill mode
+## sdd-workflow/DES-005: Grill mode
 
 Implementation: a custom slash command `/grill` registered via slim's CLI
 extension surface. Source location: `src/cli/commands/grill.ts` (new file).
@@ -104,7 +104,7 @@ Rationale anchor: REQ-003.
 
 ---
 
-## DES-006: Three-route change strategy
+## sdd-workflow/DES-006: Three-route change strategy
 
 Inlined into orchestrator append prompt. Decision tree:
 
@@ -134,7 +134,7 @@ Rationale anchor: REQ-011.
 
 ---
 
-## DES-007: memex integration
+## sdd-workflow/DES-007: memex integration
 
 memex is mounted as an MCP on the `oracle` agent only (per REQ-008).
 
@@ -173,7 +173,7 @@ Rationale anchor: REQ-008, REQ-012.
 
 ---
 
-## DES-008: trace.md generation and freshness
+## sdd-workflow/DES-008: trace.md generation and freshness
 
 trace.md format (pure ID mapping, no rationale text):
 
@@ -208,7 +208,7 @@ Rationale anchor: REQ-004, REQ-005.
 
 ---
 
-## DES-009: Model role binding in config
+## sdd-workflow/DES-009: Model role binding in config
 
 User preset (`~/.config/opencode/oh-my-opencode-slim.json`) for this fork:
 
@@ -245,7 +245,7 @@ Rationale anchor: REQ-006.
 
 ---
 
-## DES-010: Domain-layer handoff
+## sdd-workflow/DES-010: Domain-layer handoff
 
 The orchestrator append prompt instructs:
 
@@ -261,7 +261,7 @@ Rationale anchor: REQ-001.
 
 ---
 
-## DES-011: Test infrastructure (for this fork)
+## sdd-workflow/DES-011: Test infrastructure (for this fork)
 
 slim already uses Bun for tests. Distilled-rules and SDD-workflow logic that
 lands in TypeScript modules will get Bun tests at the module boundary:
@@ -276,7 +276,7 @@ Rationale anchor: REQ-009 (dogfooding TDD on this fork itself).
 
 ---
 
-## DES-012: Out-of-scope reminder
+## sdd-workflow/DES-012: Out-of-scope reminder
 
 This design does NOT cover:
 
@@ -291,7 +291,7 @@ If implementation reveals these are blockers, amend `requirements.md`
 
 ---
 
-## DES-013: Spec delta propose / merge tools
+## sdd-workflow/DES-013: Spec delta propose / merge tools
 
 Rationale anchor: REQ-014.
 
@@ -328,7 +328,7 @@ Two tools, both registered alongside `trace_regenerate` in `src/tools/spec/`:
 
 Conflict policy: merge is purely additive in v1. Edits to existing REQs/DESs are deferred to a `spec_amend` tool (out of scope for this PR; track as future work).
 
-## DES-014: Archive merged changes
+## sdd-workflow/DES-014: Archive merged changes
 
 Rationale anchor: REQ-015.
 
@@ -342,7 +342,7 @@ Rationale anchor: REQ-015.
 
 Archive entries are NOT scanned by `trace-freshness` hook, NOT parsed by `extractIds`, and NOT included in `regenerateTrace` output. They are pure historical record, addressable via path.
 
-## DES-015: Plugin source verification block inserted before Step 5
+## sdd-workflow/DES-015: Plugin source verification block inserted before Step 5
 
 Rationale anchor: REQ-016.
 
@@ -366,7 +366,7 @@ The subsection prescribes a decision tree:
 The block is kept inside the existing addendum markers so upstream
 merges continue to surface it as a single delete.
 
-## DES-016: council.gamma example added to Step 5 preset description
+## sdd-workflow/DES-016: council.gamma example added to Step 5 preset description
 
 Rationale anchor: REQ-017.
 
@@ -380,7 +380,7 @@ Add a one-line rationale: "council without gamma silently degrades to a
 two-edge debate; the third edge is the disagreement signal, not a
 fallback."
 
-## DES-017: Step 8 "Interaction discipline" + grill anti-pattern hardening
+## sdd-workflow/DES-017: Step 8 "Interaction discipline" + grill anti-pattern hardening
 
 Rationale anchor: REQ-018.
 
@@ -408,7 +408,7 @@ Separately, edit `src/skills/grill/SKILL.md` § Anti-patterns to add:
 
 This is documentation + skill-text only; no runtime code changes.
 
-## DES-018: Add "Local-plugin development loop" subsection to AGENTS.md
+## sdd-workflow/DES-018: Add "Local-plugin development loop" subsection to AGENTS.md
 
 Rationale anchor: REQ-019.
 
@@ -429,3 +429,60 @@ prescribes:
   before publishing or before any CI-relevant verification.
 
 Documentation only; no runtime code changes, no test changes.
+
+## sdd-workflow/DES-019: Two-tier spec implementation
+
+Rationale anchor: REQ-020.
+
+Parser (`src/tools/trace/parser.ts`):
+- Heading regex: `^##\\s+([a-z][a-z0-9-]*\\/(REQ|DES)-\\d+):`. Legacy
+  unqualified headings are ignored — migration is required.
+- `extractAnchors(md, {defaultDomain})` resolves bare anchors against
+  the given domain; without `defaultDomain`, bare anchors drop silently.
+- `parseQualifiedId` exported for callers that need to split
+  `auth/REQ-3` into `{domain, prefix, n}`.
+
+trace io (`src/tools/trace/io.ts`):
+- `regenerateDomainTrace(specDir, domain)` writes one domain's trace.
+- `regenerateAllDomainTraces(specDir)` walks `domains/*/`.
+- `regenerateJobTrace(specDir, slug)` rolls up all qualified ids in a
+  job's deltas (no defaultDomain — job anchors must be qualified).
+- `findStaleTraces(specDir)` returns `StaleEntry[]` for both domains
+  and open jobs, used by the trace-freshness hook.
+
+spec tools (`src/tools/spec/io.ts`):
+- `proposeJob(specDir, slug, summary, {domains})` creates the job dir,
+  pre-allocates next ids per declared domain (reading both trunk and
+  other open jobs' deltas to avoid collisions).
+- `mergeJob(specDir, slug)` groups delta sections by domain prefix,
+  refuses on collision in any target domain trunk, appends each
+  group, then regenerates affected domain traces + job trace.
+- `archiveJob(specDir, slug)` whole-dir renames `jobs/<slug>/` to
+  `archive/YYYY-MM-DD-<slug>/`. Refuses same-slug same-day re-archive.
+
+Hook (`src/hooks/trace-freshness/index.ts`):
+- Uses `findStaleTraces` and regenerates each stale entry via the
+  matching `regenerateDomainTrace` / `regenerateJobTrace`. Notice
+  format: `<internal_reminder>trace_regenerate: refreshed domain:auth, job:add-otp</internal_reminder>`.
+
+Migration (`src/tools/spec/migrate.ts` + `scripts/migrate-spec-to-domains.ts`):
+- One-shot. Reads legacy `requirements.md` + `design.md`, qualifies all
+  `## REQ-N:` / `## DES-N:` headings into `## <domain>/REQ-N:` / `## <domain>/DES-N:`.
+- Moves trunk into `domains/<domain>/`, re-homes `changes/<slug>/` into
+  `jobs/<slug>/` (qualifying delta headings on the way).
+- Regenerates the domain trace. Leaves `.migrated-to-domains` marker
+  for idempotency. Refuses if `domains/` already exists or if no
+  legacy trunk is present.
+
+Docs:
+- `src/skills/grill/SKILL.md` rewritten end-to-end to describe the
+  two-tier layout, domain naming discipline (reuse-first, do not halt
+  to ask), heading/anchor rules, and tool workflow for both bootstrap
+  and job paths.
+- `src/agents/append-prompt.ts` SDD_WORKFLOW block updated in
+  compressed form for orchestrator system prompt.
+
+Spec files in this repo are agent-only artifacts. No human-readable
+preamble. When a domain decision is made, the choice is recorded in
+one line in `proposal.md` and execution continues — no halt to ask
+the user.

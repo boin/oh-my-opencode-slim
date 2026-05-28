@@ -518,7 +518,7 @@ Use this section as a map: start with installation, then jump to features, confi
 |-----|----------------|
 | **[Configuration](docs/configuration.md)** | Config file locations, JSONC support, prompt overrides, and full option reference |
 | **[Maintainer Guide](docs/maintainers.md)** | Issue triage rules, label meanings, support routing, and repo maintenance workflow |
-| **[Skills](docs/skills.md)** | Bundled skills such as `simplify`, `codemap`, and `clonedeps` |
+| **[Skills](docs/skills.md)** | Bundled skills: `simplify`, `codemap`, `clonedeps`, `grill`, `brainstorming`, `using-git-worktrees`, `finishing-a-development-branch` |
 | **[MCPs](docs/mcps.md)** | `websearch`, `context7`, `grep_app`, and how MCP permissions work per agent |
 | **[Tools](docs/tools.md)** | Built-in tool capabilities like `webfetch`, LSP tools, code search, and formatters |
 

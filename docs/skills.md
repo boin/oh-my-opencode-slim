@@ -15,6 +15,12 @@ Bundled skills are installed by the `oh-my-opencode-slim` installer.
 | [`simplify`](#simplify) | Behavior-preserving code simplification | `oracle` |
 | [`codemap`](#codemap) | Repository codemap generation | `orchestrator` |
 | [`clonedeps`](#clonedeps) | Local dependency source cloning | `orchestrator` |
+| `grill` | Self-interrogation workflow that produces SDD requirements + design under `docs/spec/` | `orchestrator` |
+| `brainstorming` | Fuzzy front-end ideation for non-SDD repos; hands off to `grill` in SDD repos | `orchestrator` |
+| `using-git-worktrees` | Create isolated worktrees for feature work; implements the orchestrator's worktree route | `orchestrator` |
+| `finishing-a-development-branch` | Plain-repo end-of-branch decisions (merge/PR/keep/discard); defers to `commit-readiness-batcher` in TTD/deployment contexts | `orchestrator` |
+
+> Vendored: `brainstorming`, `using-git-worktrees`, and `finishing-a-development-branch` were cherry-picked from [obra/superpowers](https://github.com/obra/superpowers) (MIT) and adapted to fit oh-my-opencode-slim's orchestrator + SDD workflow. The original `superpowers` plugin is intentionally not loaded — its TDD/debugging/verification/code-review skills overlap with the orchestrator's inline `## Distilled` discipline sections and with `@oracle` / `@fixer` routing.
 
 ---
 

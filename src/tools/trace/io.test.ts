@@ -156,6 +156,25 @@ describe('trace/io (domain + job)', () => {
       expect(stale).toContainEqual({ kind: 'job', name: 'feat-x' });
     });
 
+    test('reports stale job when tasks.md newer than trace', async () => {
+      writeJob(
+        'feat-x',
+        '## auth/REQ-2: x',
+        '## auth/DES-2: y\n\nRationale anchor: auth/REQ-2.',
+      );
+      writeJobTasks('feat-x', '## TASK-001: t\n\nAnchors: auth/REQ-2');
+      regenerateJobTrace(dir, 'feat-x');
+
+      await Bun.sleep(10);
+      writeJobTasks(
+        'feat-x',
+        '## TASK-001: t\n\nAnchors: auth/REQ-2\n\n## TASK-002: u\n\nAnchors: auth/REQ-2',
+      );
+
+      const stale = findStaleTraces(dir);
+      expect(stale).toContainEqual({ kind: 'job', name: 'feat-x' });
+    });
+
     test('returns empty when everything fresh', () => {
       writeDomain(
         'auth',

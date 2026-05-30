@@ -105,6 +105,10 @@ describe('spec/io (job-scoped)', () => {
       expect(tasks).toContain('## TASK-001: Produce executable task packages');
       expect(tasks).toContain('Owner: orchestrator');
       expect(tasks).toContain('Execution Readiness');
+      expect(tasks).toContain('Human-facing: yes | no | partial');
+      expect(tasks).toContain('Design Handoff Review');
+      expect(tasks).toContain('UI / Interaction Handoff Contract');
+      expect(tasks).toContain('Red Strategy');
     });
 
     test('refuses on slug collision', () => {

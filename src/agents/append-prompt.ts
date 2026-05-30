@@ -42,6 +42,15 @@ Module Completion Discipline:
   \`Execution Readiness.Status: authorized\`; otherwise do not launch execution.
 - During output review, require anti-shell review against stub, placeholder,
   and fixture-only implementations.
+- Design Synthesis Gate: every task package must state
+  \`Human-facing: yes | no | partial\`. For human-facing work, ask at most
+  one short clarification question only when truly blocked; otherwise the
+  agent team owns UX synthesis.
+- Human-facing packages must include a UI / Interaction Handoff Contract
+  covering product behavior, interaction flow, state lifecycle, copy, and
+  validation. Require Design Handoff Review before execution.
+- The contract must include Red Strategy and any visual reference or Level 3
+  similarity constraint when applicable.
 
 Trivial tasks (typo / single-line / no spec link) skip steps 1-3 and 5 and go straight to direct-commit per Routing.`;
 

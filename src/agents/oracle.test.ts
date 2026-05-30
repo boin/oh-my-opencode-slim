@@ -22,4 +22,18 @@ describe('oracle output review anti-shell gate', () => {
     expect(prompt).toContain('real state or action');
     expect(prompt).toContain('service is called by a real path');
   });
+
+  test('prompt reviews fixer-executable human-deliverable design handoff', () => {
+    const oracle = createOracleAgent('test/model');
+    const prompt = oracle.config.prompt;
+
+    expect(prompt).toContain('Design Handoff Review');
+    expect(prompt).toContain('fixer-executable');
+    expect(prompt).toContain('human-deliverable');
+    expect(prompt).toContain('Human-facing: yes | partial');
+    expect(prompt).toContain('UI / Interaction Handoff Contract');
+    expect(prompt).toContain('pass-with-notes');
+    expect(prompt).toContain('Level 3');
+    expect(prompt).toContain('Red Strategy');
+  });
 });

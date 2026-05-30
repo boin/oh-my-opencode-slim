@@ -33,6 +33,12 @@ const ORACLE_PROMPT = `You are Oracle - a strategic technical advisor and code r
   requires an unmounted new route is mounted, or only changes UI without a
   real state or action behind it.
 - Confirm integration evidence shows the service is called by a real path.
+
+**Design Handoff Review**:
+- For Human-facing: yes | partial work, decide whether the task package is fixer-executable and human-deliverable.
+- Require a UI / Interaction Handoff Contract with behavior, flow, states, copy, validation, and Red Strategy before execution.
+- Return pass, fail, or pass-with-notes; use pass-with-notes only for non-blocking polish gaps.
+- If a Level 3 reference is declared, verify the contract names the high-similarity obligations and review evidence.
 `;
 
 export function createOracleAgent(

@@ -77,6 +77,13 @@ mandatory task-package review passes.
 
 Status: pending
 Reviewer: (not reviewed)
+Human-facing: yes | no | partial
+
+For Human-facing: yes | partial, complete Design Handoff Review before
+implementation delegation and include a UI / Interaction Handoff Contract.
+The contract must cover product behavior, interaction flow, state lifecycle,
+copy semantics, validation strategy, visual reference level when relevant, and
+Red Strategy.
 
 ## Execution Readiness
 

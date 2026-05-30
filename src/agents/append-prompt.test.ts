@@ -73,6 +73,19 @@ describe('append-prompt', () => {
     );
   });
 
+  test('includes Design Synthesis Gate for human-facing work', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Design Synthesis Gate');
+    expect(block).toContain('Human-facing: yes | no | partial');
+    expect(block).toContain('one short clarification question');
+    expect(block).toContain('agent team owns UX synthesis');
+    expect(block).toContain('UI / Interaction Handoff Contract');
+    expect(block).toContain('Design Handoff Review');
+    expect(block).toContain('Red Strategy');
+    expect(block).toMatch(/reference|Level 3/);
+  });
+
   test('block fits within 400 lines (token budget guard)', () => {
     const block = buildSddTddAppendBlock();
     const lines = block.split('\n').length;

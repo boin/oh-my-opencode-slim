@@ -24,4 +24,20 @@ describe('fixer completion contract', () => {
     expect(prompt).toContain('TODO/stub/placeholder/fixture-only');
     expect(prompt).toContain('cannot satisfy production tasks');
   });
+
+  test('prompt blocks human-facing work without reviewed design handoff', () => {
+    const fixer = createFixerAgent('test/model');
+    const prompt = fixer.config.prompt;
+
+    expect(prompt).toContain('Human-facing');
+    expect(prompt).toContain('Design Handoff Review');
+    expect(prompt).toContain('UI / Interaction Handoff Contract');
+    expect(prompt).toContain('missing, incomplete, or not reviewed');
+    expect(prompt).toContain(
+      'product behavior, interaction flow, state lifecycle',
+    );
+    expect(prompt).toContain('copy semantics');
+    expect(prompt).toContain('validation strategy');
+    expect(prompt).toContain('<blocked>');
+  });
 });

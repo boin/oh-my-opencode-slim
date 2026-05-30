@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import {
   extractAnchors,
   extractIds,
+  extractTaskAnchors,
   generateTraceTable,
   parseQualifiedId,
 } from './parser';
@@ -90,6 +91,28 @@ function jobDir(specDir: string, slug: string): string {
   return join(specDir, 'jobs', slug);
 }
 
+function mapTaskAnchorsToReqs(
+  slug: string,
+  desAnchors: Record<string, string[]>,
+  tasks: ReturnType<typeof extractTaskAnchors>,
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+
+  for (const task of tasks) {
+    const taskRef = `${slug}/${task.taskId}`;
+    for (const anchor of task.anchors) {
+      const parsed = parseQualifiedId(anchor);
+      const reqIds = parsed?.prefix === 'DES' ? desAnchors[anchor] : [anchor];
+      for (const req of reqIds ?? []) {
+        if (!result[req]) result[req] = [];
+        if (!result[req].includes(taskRef)) result[req].push(taskRef);
+      }
+    }
+  }
+
+  return result;
+}
+
 export function regenerateJobTrace(
   specDir: string,
   slug: string,
@@ -100,17 +123,24 @@ export function regenerateJobTrace(
   }
   const deltaReqPath = join(d, 'delta-requirements.md');
   const deltaDesPath = join(d, 'delta-design.md');
+  const tasksPath = join(d, 'tasks.md');
   const deltaReq = existsSync(deltaReqPath)
     ? readFileSync(deltaReqPath, 'utf8')
     : '';
   const deltaDes = existsSync(deltaDesPath)
     ? readFileSync(deltaDesPath, 'utf8')
     : '';
+  const tasks = existsSync(tasksPath) ? readFileSync(tasksPath, 'utf8') : '';
   const reqIds = extractIds(deltaReq, 'REQ');
   // Job-level anchors must be fully qualified (no defaultDomain) — a job
   // spec spans domains, so there is no single default to fall back to.
   const anchors = extractAnchors(deltaDes);
-  const table = generateTraceTable(reqIds, anchors);
+  const taskAnchors = mapTaskAnchorsToReqs(
+    slug,
+    anchors,
+    extractTaskAnchors(tasks),
+  );
+  const table = generateTraceTable(reqIds, anchors, taskAnchors);
   return writeTrace(join(d, 'trace.md'), table);
 }
 
@@ -156,6 +186,7 @@ export function findStaleTraces(specDir: string): StaleEntry[] {
       isStaleAgainst(join(d, 'trace.md'), [
         join(d, 'delta-requirements.md'),
         join(d, 'delta-design.md'),
+        join(d, 'tasks.md'),
       ])
     ) {
       out.push({ kind: 'job', name: slug });

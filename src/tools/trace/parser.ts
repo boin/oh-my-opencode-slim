@@ -24,6 +24,11 @@ export interface ParsedId {
   n: number;
 }
 
+export interface TaskAnchor {
+  taskId: string;
+  anchors: string[];
+}
+
 export function parseQualifiedId(id: string): ParsedId | null {
   const m = id.match(new RegExp(`^(${DOMAIN_RE_SRC})\\/(REQ|DES)-(\\d+)$`));
   if (!m) return null;
@@ -53,6 +58,35 @@ export function extractSections(markdown: string, prefix: string): Section[] {
 
 export function extractIds(markdown: string, prefix: string): string[] {
   return extractSections(markdown, prefix).map((s) => s.id);
+}
+
+export function extractTaskAnchors(markdown: string): TaskAnchor[] {
+  const re = /^##\s+(TASK-\d+):/gm;
+  const heads: Array<{ id: string; start: number }> = [];
+  for (const m of markdown.matchAll(re)) {
+    heads.push({ id: m[1], start: m.index ?? 0 });
+  }
+
+  const out: TaskAnchor[] = [];
+  for (let i = 0; i < heads.length; i++) {
+    const end = heads[i + 1]?.start ?? markdown.length;
+    const body = markdown.slice(heads[i].start, end);
+    const anchorMatch = body.match(/Anchors:\s+([^\n]+)/);
+    if (!anchorMatch) continue;
+
+    const anchors = anchorMatch[1]
+      .split(/,\s*/)
+      .map((raw) => raw.trim().replace(/[.。]$/, ''))
+      .filter((tok) => {
+        const parsed = parseQualifiedId(tok);
+        return parsed?.prefix === 'REQ' || parsed?.prefix === 'DES';
+      });
+    if (anchors.length > 0) {
+      out.push({ taskId: heads[i].id, anchors });
+    }
+  }
+
+  return out;
 }
 
 export interface AnchorOptions {
@@ -91,6 +125,7 @@ export function extractAnchors(
 export function generateTraceTable(
   reqIds: string[],
   desAnchors: Record<string, string[]>,
+  taskAnchors: Record<string, string[]> = {},
 ): string {
   const reqToDes: Record<string, string[]> = {};
   for (const req of reqIds) reqToDes[req] = [];
@@ -106,7 +141,9 @@ export function generateTraceTable(
   for (const req of reqIds) {
     const desList = reqToDes[req];
     const desCol = desList.length > 0 ? desList.join(', ') : '—';
-    lines.push(`| ${req} | ${desCol} | — |`);
+    const taskList = taskAnchors[req] ?? [];
+    const taskCol = taskList.length > 0 ? taskList.join(', ') : '—';
+    lines.push(`| ${req} | ${desCol} | ${taskCol} |`);
   }
 
   return lines.join('\n');

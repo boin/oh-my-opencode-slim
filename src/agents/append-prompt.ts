@@ -30,6 +30,19 @@ Trace freshness paths (do not double-call):
 - Hook path: \`trace-freshness\` walks all domain triads + open jobs and regenerates whatever is stale on the next orchestrator turn.
 - Manual path: \`trace_regenerate\` (no args = all domains; \`domain=<d>\` for one; \`job=<slug>\` for one job).
 
+Module Completion Discipline:
+- For non-trivial SDD implementation, orchestrator must provide each fixer
+  subtask with a task package before execution.
+  Trivial direct edits remain allowed and do not require a task package.
+- Task package required fields: REQ/DES/TASK anchors, Boundaries,
+  Acceptance Checks, Validation, Completion Evidence, Anti-Shell Rules.
+- Gate 1: require mandatory task-package review evidence containing exactly
+  \`Task Package Review.Status: passed\`; otherwise do not launch execution.
+- Gate 2: require the authorization gate evidence containing exactly
+  \`Execution Readiness.Status: authorized\`; otherwise do not launch execution.
+- During output review, require anti-shell review against stub, placeholder,
+  and fixture-only implementations.
+
 Trivial tasks (typo / single-line / no spec link) skip steps 1-3 and 5 and go straight to direct-commit per Routing.`;
 
 const ROUTING = `## Routing (three change strategies)

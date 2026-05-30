@@ -40,6 +40,10 @@ describe('trace/io (domain + job)', () => {
     writeFileSync(join(d, 'delta-design.md'), des);
   }
 
+  function writeJobTasks(slug: string, tasks: string) {
+    writeFileSync(join(dir, 'jobs', slug, 'tasks.md'), tasks);
+  }
+
   describe('regenerateDomainTrace', () => {
     test('writes trace for a single domain with qualified ids', () => {
       writeDomain(
@@ -101,6 +105,23 @@ describe('trace/io (domain + job)', () => {
       const trace = readFileSync(result.path, 'utf8');
       expect(trace).toContain('| auth/REQ-3 | auth/DES-3 | — |');
       expect(trace).toContain('| notify/REQ-2 | notify/DES-2 | — |');
+    });
+
+    test('maps job-local TASK anchors to slug-qualified task references', () => {
+      writeJob(
+        'add-otp',
+        '## auth/REQ-3: otp flow',
+        '## auth/DES-3: x\n\nRationale anchor: auth/REQ-3.',
+      );
+      writeJobTasks(
+        'add-otp',
+        '## TASK-001: Implement otp flow\n\nAnchors: auth/REQ-3, auth/DES-3\n...',
+      );
+
+      const result = regenerateJobTrace(dir, 'add-otp');
+      const trace = readFileSync(result.path, 'utf8');
+
+      expect(trace).toContain('| auth/REQ-3 | auth/DES-3 | add-otp/TASK-001 |');
     });
 
     test('throws when job dir missing', () => {

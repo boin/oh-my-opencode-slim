@@ -93,6 +93,20 @@ describe('spec/io (job-scoped)', () => {
       expect(r.allocations.auth.des).toBe('auth/DES-2');
     });
 
+    test('creates tasks.md with job-local task bootstrap', () => {
+      seedDomain('auth', [], []);
+      const r = proposeJob(specDir, 'feat-task', 'x', { domains: ['auth'] });
+      const tasksPath = join(r.jobDir, 'tasks.md');
+
+      expect(existsSync(tasksPath)).toBe(true);
+      const tasks = readFileSync(tasksPath, 'utf8');
+      expect(tasks).toContain('## Task Package Review');
+      expect(tasks).toContain('Status: pending');
+      expect(tasks).toContain('## TASK-001: Produce executable task packages');
+      expect(tasks).toContain('Owner: orchestrator');
+      expect(tasks).toContain('Execution Readiness');
+    });
+
     test('refuses on slug collision', () => {
       seedDomain('auth', [], []);
       proposeJob(specDir, 'dup', 'x');

@@ -46,6 +46,33 @@ describe('append-prompt', () => {
     expect(block).toContain('spec_archive');
   });
 
+  test('includes module-package gate for non-trivial SDD implementation', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Module Completion Discipline');
+    expect(block).toContain('Task package required fields');
+    expect(block).toContain('REQ/DES/TASK anchors');
+    expect(block).toContain('Boundaries');
+    expect(block).toContain('Acceptance Checks');
+    expect(block).toContain('Validation');
+    expect(block).toContain('Completion Evidence');
+    expect(block).toContain('Anti-Shell Rules');
+
+    expect(block).toContain('Task Package Review.Status: passed');
+    expect(block).toContain('mandatory task-package review');
+    expect(block).toContain('Execution Readiness.Status: authorized');
+    expect(block).toContain('authorization gate');
+
+    expect(block).toContain('anti-shell review');
+    expect(block).toContain('stub');
+    expect(block).toContain('placeholder');
+    expect(block).toContain('fixture-only');
+
+    expect(block).toContain(
+      'Trivial direct edits remain allowed and do not require a task package.',
+    );
+  });
+
   test('block fits within 400 lines (token budget guard)', () => {
     const block = buildSddTddAppendBlock();
     const lines = block.split('\n').length;

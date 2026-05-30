@@ -4,7 +4,7 @@ Source: hand-distilled from `superpowers` skills, optimized for Opus 4.7 as
 orchestrator. Compact principles + hard rules + exemptions. No checklists, no
 examples, no role-play scaffolding.
 
-Length budget: ≤200 lines total. Currently ~90 lines.
+Length budget: ≤200 lines total. Currently ~130 lines.
 
 These rules are injected via `orchestrator.customAppendPrompt`. Update them
 manually when upstream `superpowers` ships meaningful new discipline; do not
@@ -92,6 +92,55 @@ Hard rules:
 
 ---
 
+## Module completion discipline
+
+For spec-backed non-trivial SDD jobs, the orchestrator must convert `REQ/DES`
+direction into job-local executable task packages before write-capable
+delegation.
+
+Gate order:
+
+1. Author or update `docs/spec/jobs/<slug>/tasks.md`.
+2. Pass mandatory `@oracle` task-package review.
+3. Present execution readiness to the user and record authorization.
+4. Delegate only complete task packages to write-capable specialists.
+5. Inspect completion evidence before marking any task `complete`.
+
+Task package minimum fields:
+
+- `REQ/DES/TASK` anchors
+- `Owner`
+- `Status`
+- `Goal`
+- `Boundaries`
+- `Implementation Requirements`
+- `Acceptance Checks`
+- `Validation`
+- `Completion Evidence`
+- `Anti-Shell Rules`
+
+Role boundaries:
+
+- The orchestrator authors task packages and controls task status.
+- `@fixer` consumes task packages, implements bounded scope, and reports
+  completion evidence. It must not derive task boundaries from broad `REQ/DES`
+  sections and must not mark task status as `complete`.
+- `@oracle` reviews task packages and output evidence. It remains read-only.
+
+Anti-shell hard failures:
+
+- Missing completion evidence.
+- Validation missing, skipped without reason, or unrelated to the task.
+- Acceptance checks restated but not evidenced.
+- TODO/stub/placeholder in the production path.
+- Fixture/mock/demo-only behavior presented as production behavior.
+- New UI/API/service/schema/model not reachable from a real path, direct test,
+  or documented smoke.
+
+Trivial direct edits remain allowed and do not require a task package.
+
+---
+
 ## Cross-cutting
 
 - These rules override style preferences but yield to explicit user
@@ -99,5 +148,6 @@ Hard rules:
 - These rules apply to Opus orchestrator behavior. GPT-class specialists
   inherit them indirectly through subtask prompts the orchestrator writes.
 - When these rules conflict with each other in a specific situation, prefer
-  Verification > Debugging > TDD discipline — i.e., do not skip verification
-  to keep TDD pure, do not skip systematic debugging to verify faster.
+  Verification > Module completion > Debugging > TDD discipline — i.e., do not
+  skip verification or task completion evidence to keep TDD pure, and do not
+  skip systematic debugging to verify faster.

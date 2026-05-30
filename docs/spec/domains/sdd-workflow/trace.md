@@ -24,3 +24,5 @@ and re-run trace_regenerate instead of editing this file directly.
 | sdd-workflow/REQ-018 | sdd-workflow/DES-017 | — |
 | sdd-workflow/REQ-019 | sdd-workflow/DES-018 | — |
 | sdd-workflow/REQ-020 | sdd-workflow/DES-019 | — |
+| sdd-workflow/REQ-021 | sdd-workflow/DES-020 | — |
+| sdd-workflow/REQ-022 | sdd-workflow/DES-020 | — |

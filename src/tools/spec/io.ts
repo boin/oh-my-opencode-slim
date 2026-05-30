@@ -66,6 +66,36 @@ function archiveBase(specDir: string): string {
   return join(specDir, 'archive');
 }
 
+function taskBootstrap(slug: string): string {
+  return `# Tasks: ${slug}
+
+This file is the job-local execution contract. For spec-backed non-trivial SDD
+jobs, implementation MUST NOT be delegated until task packages are authored and
+mandatory task-package review passes.
+
+## Task Package Review
+
+Status: pending
+Reviewer: (not reviewed)
+
+## Execution Readiness
+
+Status: pending
+Scope: task packages must be reviewed before implementation delegation.
+
+---
+
+## TASK-001: Produce executable task packages
+
+Owner: orchestrator
+Status: pending
+
+### Goal
+
+Produce complete job-local task packages before implementation delegation.
+`;
+}
+
 // --- introspection ---
 
 function listOpenJobSlugs(specDir: string): string[] {
@@ -175,6 +205,7 @@ export function proposeJob(
     .join('\n');
   writeFileSync(join(dir, 'delta-requirements.md'), reqStubs);
   writeFileSync(join(dir, 'delta-design.md'), desStubs);
+  writeFileSync(join(dir, 'tasks.md'), taskBootstrap(slug));
 
   return { slug, jobDir: dir, allocations };
 }

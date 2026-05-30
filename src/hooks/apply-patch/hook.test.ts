@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { chmod, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { parsePatch } from './codec';
@@ -460,28 +460,22 @@ garbage
 
   test('blocks internal guard errors before native execution', async () => {
     const root = await createTempDir('apply-patch-hook-');
-    const lockedDir = path.join(root, 'locked');
-    await mkdir(lockedDir, { recursive: true });
-    await chmod(lockedDir, 0o000);
+    await symlink('loop', path.join(root, 'loop'));
     const hook = createHook();
     const patchText = `*** Begin Patch
-*** Add File: locked/child.txt
+*** Add File: loop/child.txt
 +fresh
 *** End Patch`;
     const output = { args: { patchText } };
 
-    try {
-      await expect(
-        hook['tool.execute.before'](
-          { tool: 'apply_patch', directory: root },
-          output,
-        ),
-      ).rejects.toThrow('apply_patch internal error:');
+    await expect(
+      hook['tool.execute.before'](
+        { tool: 'apply_patch', directory: root },
+        output,
+      ),
+    ).rejects.toThrow('apply_patch internal error:');
 
-      expect(output.args.patchText).toBe(patchText);
-    } finally {
-      await chmod(lockedDir, 0o755);
-    }
+    expect(output.args.patchText).toBe(patchText);
   });
 
   test('blocks a dangerous indented case as verification', async () => {

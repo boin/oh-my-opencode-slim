@@ -206,6 +206,12 @@ relevant files. Wait for the summary, then integrate and verify it.
 4. Integrate results
 5. Adjust if needed
 
+### Simplicity and Surgicality
+- Prefer the smallest implementation that satisfies the verified goal.
+- Do not add abstractions, configurability, or edge-case handling unless the user asked for them or a failing test/spec requires them.
+- Every changed line should trace directly to the user request, a failing test, or an explicit spec requirement.
+- Do not refactor adjacent code, comments, or formatting unless necessary for the task.
+
 ### Session Reuse
 - Smartly reuse an available specialist session - context reuse saves time and tokens
 - When too much unrelated, and really needed, start a fresh session with the specialist

@@ -8,7 +8,12 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { regenerateDomainTrace, regenerateJobTrace } from '../trace/io';
-import { extractIds, extractSections, parseQualifiedId } from '../trace/parser';
+import {
+  DOMAIN_RE_SRC,
+  extractIds,
+  extractSections,
+  parseQualifiedId,
+} from '../trace/parser';
 
 // Invariants:
 //   1. Domain spec is the source of truth. Job specs are change containers
@@ -32,6 +37,7 @@ export interface ProposeResult {
   slug: string;
   jobDir: string;
   allocations: Record<string, DomainAllocation>;
+  initializedDomains: string[];
 }
 
 export interface MergeResult {
@@ -121,12 +127,38 @@ function listDomains(specDir: string): string[] {
     .map((e) => e.name);
 }
 
+function domainExists(specDir: string, domain: string): boolean {
+  return existsSync(domainDir(specDir, domain));
+}
+
+function assertValidDomainName(domain: string): void {
+  if (!new RegExp(`^${DOMAIN_RE_SRC}$`).test(domain)) {
+    throw new Error(
+      `invalid domain '${domain}'; use kebab-case matching ${DOMAIN_RE_SRC}`,
+    );
+  }
+}
+
 function assertDomainExists(specDir: string, domain: string): void {
-  if (!existsSync(domainDir(specDir, domain))) {
+  if (!domainExists(specDir, domain)) {
     throw new Error(
       `domain '${domain}' not found at ${domainDir(specDir, domain)}; create the domain triad first`,
     );
   }
+}
+
+function initializeDomainTriad(specDir: string, domain: string): void {
+  const dir = domainDir(specDir, domain);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'requirements.md'),
+    `# ${domain} requirements\n\nInitialized by spec_propose.\n`,
+  );
+  writeFileSync(
+    join(dir, 'design.md'),
+    `# ${domain} design\n\nInitialized by spec_propose.\n`,
+  );
+  regenerateDomainTrace(specDir, domain);
 }
 
 function collectReservedIds(
@@ -185,7 +217,9 @@ export function proposeJob(
   }
 
   const domains = options.domains ?? [];
-  for (const d of domains) assertDomainExists(specDir, d);
+  for (const d of domains) assertValidDomainName(d);
+  const initializedDomains = domains.filter((d) => !domainExists(specDir, d));
+  for (const d of initializedDomains) initializeDomainTriad(specDir, d);
 
   const allocations: Record<string, DomainAllocation> = {};
   for (const d of domains) {
@@ -196,9 +230,12 @@ export function proposeJob(
   }
 
   mkdirSync(dir, { recursive: true });
+  const initializedNote = initializedDomains.length
+    ? `\nInitialized new domains: ${initializedDomains.join(', ')}\n`
+    : '';
   writeFileSync(
     join(dir, 'proposal.md'),
-    `# Job: ${slug}\n\n${summary}\n\nDomains: ${domains.length ? domains.join(', ') : '(none declared at propose time)'}\n`,
+    `# Job: ${slug}\n\n${summary}\n\nDomains: ${domains.length ? domains.join(', ') : '(none declared at propose time)'}\n${initializedNote}`,
   );
 
   const reqStubs = domains
@@ -214,7 +251,7 @@ export function proposeJob(
   writeFileSync(join(dir, 'delta-design.md'), desStubs);
   writeFileSync(join(dir, 'tasks.md'), taskBootstrap(slug));
 
-  return { slug, jobDir: dir, allocations };
+  return { slug, jobDir: dir, allocations, initializedDomains };
 }
 
 // --- merge ---

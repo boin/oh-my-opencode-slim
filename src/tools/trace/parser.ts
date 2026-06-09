@@ -8,7 +8,7 @@
 // must be migrated via scripts/migrate-spec-to-domains.ts before tools
 // will see them.
 
-const DOMAIN_RE_SRC = '[a-z][a-z0-9-]*';
+export const DOMAIN_RE_SRC = '[a-z][a-z0-9-]*';
 
 const HEADING_ID_RE = (prefix: string) =>
   new RegExp(`^##\\s+(${DOMAIN_RE_SRC}\\/${prefix}-\\d+):`, 'gm');

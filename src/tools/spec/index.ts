@@ -31,7 +31,7 @@ Returns the job dir and per-domain id allocations.`,
         .array(z.string())
         .optional()
         .describe(
-          'Domains touched by this job. Each must already exist under docs/spec/domains/. Pre-allocates one REQ + one DES id per domain.',
+          'Legal kebab-case domains touched by this job. Missing legal domains are initialized under docs/spec/domains/. Pre-allocates one REQ + one DES id per domain.',
         ),
       spec_dir: z
         .string()
@@ -52,7 +52,10 @@ Returns the job dir and per-domain id allocations.`,
         Object.entries(r.allocations)
           .map(([d, a]) => `${d}:${a.req}/${a.des}`)
           .join(', ') || '(none)';
-      return `proposed ${r.slug} at ${r.jobDir}; allocations: ${allocSummary}`;
+      const initializedSummary = r.initializedDomains.length
+        ? `; initialized domains: ${r.initializedDomains.join(', ')}`
+        : '';
+      return `proposed ${r.slug} at ${r.jobDir}; allocations: ${allocSummary}${initializedSummary}`;
     },
   });
 

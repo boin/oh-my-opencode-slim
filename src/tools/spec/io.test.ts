@@ -117,10 +117,46 @@ describe('spec/io (job-scoped)', () => {
       expect(() => proposeJob(specDir, 'dup', 'x')).toThrow(/already exists/);
     });
 
-    test('refuses if domain dir missing for a declared domain', () => {
+    test('initializes missing valid declared domain triad and allocates first ids', () => {
+      let r: ReturnType<typeof proposeJob> | undefined;
+
+      expect(() => {
+        r = proposeJob(specDir, 'new-domain-job', 'x', {
+          domains: ['new-domain'],
+        });
+      }).not.toThrow();
+
+      if (!r) {
+        throw new Error('proposeJob did not return a result');
+      }
+
+      const domainDir = join(specDir, 'domains', 'new-domain');
+      expect(existsSync(join(domainDir, 'requirements.md'))).toBe(true);
+      expect(existsSync(join(domainDir, 'design.md'))).toBe(true);
+      expect(existsSync(join(domainDir, 'trace.md'))).toBe(true);
+      expect(readFileSync(join(domainDir, 'trace.md'), 'utf8')).toContain(
+        '# Trace',
+      );
+      expect(r.allocations).toEqual({
+        'new-domain': {
+          req: 'new-domain/REQ-1',
+          des: 'new-domain/DES-1',
+        },
+      });
+
+      const proposal = readFileSync(join(r.jobDir, 'proposal.md'), 'utf8');
+      expect(proposal).toMatch(/new-domain/i);
+      expect(proposal).toMatch(/created|initialized|new/i);
+    });
+
+    test('refuses invalid declared domain names before writing files', () => {
       expect(() =>
-        proposeJob(specDir, 'bad', 'x', { domains: ['ghost'] }),
-      ).toThrow(/domain.*ghost/);
+        proposeJob(specDir, 'bad-domain', 'x', { domains: ['../oops'] }),
+      ).toThrow(/invalid domain/i);
+
+      expect(existsSync(join(specDir, 'oops'))).toBe(false);
+      expect(existsSync(join(specDir, 'domains', '..', 'oops'))).toBe(false);
+      expect(existsSync(join(specDir, 'jobs', 'bad-domain'))).toBe(false);
     });
   });
 

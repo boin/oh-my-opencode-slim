@@ -7,7 +7,27 @@ Layout (two-tier):
 
 Heading format is strict: \`## <domain>/REQ-N: <title>\` and \`## <domain>/DES-N: <title>\` (kebab-case domain, trailing colon required). Anchors in job deltas MUST be fully qualified (\`Rationale anchor: auth/REQ-3\`); anchors in domain design.md MAY be bare and resolve to the file's domain.
 
-For any non-trivial task (touches >1 file OR introduces new behavior):
+Full SDD workflow applies when the change is risk-bearing, crosses a
+meaningful boundary, is ambiguous, or is anchored to existing spec work. Use
+the full path for high-risk changes, unclear product/UX decisions, API, data,
+security, persistence, workflow, service, storage, or integration behavior,
+cross-domain work, open-job/spec-anchored work, or when the agent would need to
+invent product design rather than implement a bounded request.
+
+Minor bounded changes:
+- If the request is small, well-scoped, low-risk, and confined to an existing
+  surface without crossing UI/API/service/storage boundaries, the orchestrator
+  may skip spec_propose, skip the task package, and skip Design Handoff Review.
+- The exemption is for clearly bounded copy, styling, test, prompt-wording, or
+  local behavior adjustments where acceptance is explicit and no product design
+  invention is needed.
+- Disqualifiers fall back to full SDD: spec-anchored or open job work,
+  high-risk changes require full SDD, ambiguous changes require full SDD,
+  boundary-crossing changes require full SDD, API/data/security/persistence/
+  workflow changes require full SDD, and any task where the agent must invent
+  product design requires full SDD.
+
+For any full SDD task:
 
 1. **Layout check** — does \`docs/spec/domains/\` exist?
    - **No, but legacy \`docs/spec/requirements.md\` exists** → run \`scripts/migrate-spec-to-domains.ts --domain=<name>\` first. Pick \`<name>\` by reuse-first rule (see grill skill).
@@ -52,7 +72,7 @@ Module Completion Discipline:
 - The contract must include Red Strategy and any visual reference or Level 3
   similarity constraint when applicable.
 
-Trivial tasks (typo / single-line / no spec link) skip steps 1-3 and 5 and go straight to direct-commit per Routing.`;
+Trivial tasks (typo / single-line / no spec link) and minor bounded changes that pass the exemption checks skip full SDD gates and route by normal git impact rules.`;
 
 const ROUTING = `## Routing (three change strategies)
 

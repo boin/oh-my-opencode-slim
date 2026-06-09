@@ -86,6 +86,29 @@ describe('append-prompt', () => {
     expect(block).toMatch(/reference|Level 3/);
   });
 
+  test('includes minor bounded change exemption wording', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Minor bounded changes');
+    expect(block).toMatch(/skip[^.]*spec_propose/i);
+    expect(block).toMatch(/skip[^.]*task package/i);
+    expect(block).toMatch(/skip[^.]*Design Handoff Review/i);
+  });
+
+  test('keeps full SDD fallback for unsafe minor bounded changes', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toMatch(/high-risk[^.]*full SDD/i);
+    expect(block).toMatch(/ambiguous[^.]*full SDD/i);
+    expect(block).toMatch(/boundar(?:y|ies)[^.]*full SDD/i);
+  });
+
+  test('does not hard-code all new behavior as full SDD', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).not.toContain('introduces new behavior');
+  });
+
   test('block fits within 400 lines (token budget guard)', () => {
     const block = buildSddTddAppendBlock();
     const lines = block.split('\n').length;

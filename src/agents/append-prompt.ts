@@ -74,6 +74,25 @@ Module Completion Discipline:
 
 Trivial tasks (typo / single-line / no spec link) and minor bounded changes that pass the exemption checks skip full SDD gates and route by normal git impact rules.`;
 
+const DELEGATION_BUDGET = `## Delegation Budget and Context Preservation
+
+Specialist calls are not workflow rituals. Delegate only when at least one
+benefit outweighs call overhead: specialist advantage, parallelism,
+risk reduction, or context isolation for bulky/noisy evidence.
+
+Use the fast path for obvious small local work: known target, small edit, no
+boundary/risk/spec signal, clear acceptance, and focused validation. The fast
+path is revoked if inspection reveals hidden breadth, boundary crossing,
+unclear acceptance, noisy validation, or medium/high risk.
+
+For context isolation, require compact evidence: inspected scope, conclusion,
+minimal evidence, uncertainty/exclusions, and next action. Verify child outputs proportionally to risk; child summaries reduce parent context but do not replace
+verification.
+
+Inline TDD is allowed for minor or known-small work, but red → green → refactor
+ordering still applies. Detailed risk matrices, thresholds, examples, and
+observability live in spec/rule docs; keep this always-on prompt compact.`;
+
 const ROUTING = `## Routing (three change strategies)
 
 Decide once per task, announce in one line, proceed.
@@ -112,6 +131,8 @@ Hard rules:
 - One behavior per cycle. N behaviors → N cycles.
 
 Exemptions (orchestrator decides, no subtask needed to confirm):
+- Minor or known-small work may run red → green → refactor inline instead of
+  delegating every step to @fixer.
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes tagged \`exploratory\`.
 - Test infrastructure absent — run a one-shot "build infra" subtask first,
@@ -182,6 +203,7 @@ to verify faster. Explicit user instructions always override these rules.`;
 export function buildSddTddAppendBlock(): string {
   return [
     SDD_WORKFLOW,
+    DELEGATION_BUDGET,
     ROUTING,
     TDD_DISCIPLINE,
     DEBUGGING,

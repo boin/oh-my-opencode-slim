@@ -1,5 +1,5 @@
 export const TODO_HYGIENE_REMINDER =
-  'If the active task changed or finished, update the todo list to match the current work state.';
+  'If the active task changed or finished, update the todo list to match the current work state. For steering, correction, clarification, or added constraints, preserve still-valid todos and merge the new guidance instead of replacing the list wholesale, unless the user explicitly cancels or replaces the task.';
 export const TODO_FINAL_ACTIVE_REMINDER =
   'If you are finishing now, do not leave the active todo in_progress. Mark it completed, or move unfinished work back to pending.';
 

@@ -51,6 +51,14 @@ describe('todo hygiene', () => {
     expect(hook.getPendingReminder('s1')).toBeNull();
   });
 
+  test('reminds steering updates to preserve still-valid todos', () => {
+    expect(TODO_HYGIENE_REMINDER).toContain('steering');
+    expect(TODO_HYGIENE_REMINDER).toContain('preserve');
+    expect(TODO_HYGIENE_REMINDER).toContain('still-valid');
+    expect(TODO_HYGIENE_REMINDER).toContain('merge');
+    expect(TODO_HYGIENE_REMINDER).toContain('explicitly cancels or replaces');
+  });
+
   test('arms after the first relevant tool following todowrite', async () => {
     const hook = createTodoHygiene({
       getTodoState: async () => createState(),

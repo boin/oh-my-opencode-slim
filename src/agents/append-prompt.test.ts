@@ -109,6 +109,21 @@ describe('append-prompt', () => {
     expect(block).not.toContain('introduces new behavior');
   });
 
+  test('includes delegation budget and context preservation gate', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Delegation Budget and Context Preservation');
+    expect(block).toContain('Specialist calls are not workflow rituals');
+    expect(block).toContain('specialist advantage');
+    expect(block).toContain('parallelism');
+    expect(block).toContain('risk reduction');
+    expect(block).toContain('context isolation');
+    expect(block).toContain('fast path');
+    expect(block).toContain('compact evidence');
+    expect(block).toContain('Verify child outputs proportionally to risk');
+    expect(block).toContain('Inline TDD is allowed');
+  });
+
   test('block fits within 400 lines (token budget guard)', () => {
     const block = buildSddTddAppendBlock();
     const lines = block.split('\n').length;

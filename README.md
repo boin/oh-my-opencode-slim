@@ -17,6 +17,19 @@
   <p>
     <b>English</b> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja-JP.md">日本語</a> | <a href="README.ko-KR.md">한국어</a>
   </p>
+
+  <p><sub>✦ ✦ ✦</sub></p>
+
+## Support the Project 💖
+
+oh-my-opencode-slim is built and maintained in my spare time. If it helps you consider sponsoring my codex subscription.
+
+**Goal: $200/month**
+
+[![Sponsor](https://img.shields.io/github/sponsors/alvinunreal?style=for-the-badge&logo=GitHub-Sponsors&logoColor=EA4AAA&label=Sponsor)](https://github.com/sponsors/alvinunreal)
+
+See live progress + become a sponsor → [GitHub Sponsors](https://github.com/sponsors/alvinunreal)
+
 </div>
 
 ---
@@ -54,6 +67,8 @@ background subagent support, so beta users must start OpenCode with the
 experimental flag enabled.
 
 ```bash
+# Existing users: clear OpenCode's cached package first so beta is fetched fresh.
+rm -rf ~/.cache/opencode/packages/oh-my-opencode-slim
 bunx oh-my-opencode-slim@beta install
 OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=1 opencode
 ```
@@ -75,6 +90,8 @@ Then:
    opencode models --refresh
    ```
 3. **Open your plugin config** at `~/.config/opencode/oh-my-opencode-slim.json`
+   or `$OPENCODE_CONFIG_DIR/oh-my-opencode-slim.json` if you use a custom
+   OpenCode config directory
 
 4. **Update the models you want for each agent**
 
@@ -539,7 +556,7 @@ Use this section as a map: start with installation, then jump to features, confi
   <p><sub>Every merged contribution leaves a mark on the realm.</sub></p>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-55-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-58-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 </div>
 
@@ -624,6 +641,9 @@ Use this section as a map: start with installation, then jump to features, confi
     </tr>
     <tr>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/OmerFarukOruc"><img src="https://avatars.githubusercontent.com/u/7347742?v=4?s=100" width="100px;" alt="Omer Faruk Oruc"/><br /><sub><b>Omer Faruk Oruc</b></sub></a><br /><a href="https://github.com/alvinunreal/oh-my-opencode-slim/commits?author=OmerFarukOruc" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://khallaf.uk/"><img src="https://avatars.githubusercontent.com/u/51155980?v=4?s=100" width="100px;" alt="Omar Mohamed Khallaf"/><br /><sub><b>Omar Mohamed Khallaf</b></sub></a><br /><a href="https://github.com/alvinunreal/oh-my-opencode-slim/commits?author=omar-mohamed-khallaf" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/Qesire"><img src="https://avatars.githubusercontent.com/u/102657430?v=4?s=100" width="100px;" alt="Knowingthesea_Qesire"/><br /><sub><b>Knowingthesea_Qesire</b></sub></a><br /><a href="https://github.com/alvinunreal/oh-my-opencode-slim/commits?author=Qesire" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="http://www.flyinghail.net/"><img src="https://avatars.githubusercontent.com/u/157430?v=4?s=100" width="100px;" alt="FENG Hao"/><br /><sub><b>FENG Hao</b></sub></a><br /><a href="https://github.com/alvinunreal/oh-my-opencode-slim/commits?author=flyinghail" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

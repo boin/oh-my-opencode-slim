@@ -192,7 +192,7 @@ SDD while risky or ambiguous work still falls back to full SDD.
 ## TASK-004: Verify repository checks and merge spec job
 
 Owner: orchestrator
-Status: in_progress
+Status: complete
 Anchors: sdd-workflow/REQ-24, sdd-workflow/DES-22
 
 ### Goal
@@ -231,6 +231,8 @@ merge/archive the SDD job if approved.
 - Focused prompt test passed via temporary `npm exec --yes bun`.
 - `npm run typecheck` passed.
 - `npm run check:ci` passed.
+- Oracle output review approved the anchored diff, after which `spec_merge` and
+  `spec_archive` completed and produced this archived job snapshot.
 
 ### Anti-Shell Rules
 

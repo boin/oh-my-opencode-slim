@@ -133,6 +133,46 @@ describe('append-prompt', () => {
     expect(block).toContain('Inline TDD is allowed');
   });
 
+  test('keeps user-facing output concise by default', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Concise User Output');
+    expect(block).toContain('route');
+    expect(block).toContain('reason');
+    expect(block).toContain('next');
+    expect(block).toContain('status');
+    expect(block).toContain('Do not expose raw reasoning');
+    expect(block).toContain('long evidence chains');
+    expect(block).toContain('full child summaries');
+    expect(block).toContain('failure, approval, high risk');
+    expect(block).toContain('surprising result');
+    expect(block).toContain('user request');
+  });
+
+  test('supports delta-scoped specialist follow-up reuse', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Specialist Follow-up Reuse');
+    expect(block).toContain('same topic/scope');
+    expect(block).toContain('previous task_id');
+    expect(block).toContain('previous verdict');
+    expect(block).toContain('required fixes');
+    expect(block).toContain('changed files');
+    expect(block).toContain('applied delta');
+    expect(block).toContain('validation result');
+    expect(block).toContain('validation was not rerun or now fails');
+    expect(block).toContain('files or anchors changed outside prior scope');
+    expect(block).toContain('API/data/security/persistence/workflow');
+    expect(block).toContain('product semantics');
+    expect(block).toContain('prior review scope was incomplete');
+    expect(block).toContain('user asks for a fresh review');
+    expect(block).toContain('same-session delta follow-up');
+    expect(block).toContain('same-session full re-review');
+    expect(block).toContain('new-session full review');
+    expect(block).toContain('fixed yes/no');
+    expect(block).toContain('new risk yes/no');
+  });
+
   test('block fits within 400 lines (token budget guard)', () => {
     const block = buildSddTddAppendBlock();
     const lines = block.split('\n').length;

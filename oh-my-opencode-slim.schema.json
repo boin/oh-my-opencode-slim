@@ -259,6 +259,7 @@
               }
             },
             "mcps": {
+              "description": "MCPs this agent can use (\"*\" = all, \"!item\" = exclude). Built-ins: websearch, context7, grep_app, codegraph.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -343,6 +344,7 @@
             }
           },
           "mcps": {
+            "description": "MCPs this agent can use (\"*\" = all, \"!item\" = exclude). Built-ins: websearch, context7, grep_app, codegraph.",
             "type": "array",
             "items": {
               "type": "string"
@@ -379,6 +381,7 @@
       }
     },
     "disabled_mcps": {
+      "description": "MCP server IDs to disable globally. Built-ins: websearch, context7, grep_app, codegraph.",
       "type": "array",
       "items": {
         "type": "string"

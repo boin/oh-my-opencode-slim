@@ -101,7 +101,12 @@ export const AgentOverrideConfigSchema = z
     temperature: z.number().min(0).max(2).optional(),
     variant: z.string().optional().catch(undefined),
     skills: z.array(z.string()).optional(), // skills this agent can use ("*" = all, "!item" = exclude)
-    mcps: z.array(z.string()).optional(), // MCPs this agent can use ("*" = all, "!item" = exclude)
+    mcps: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'MCPs this agent can use ("*" = all, "!item" = exclude). Built-ins: websearch, context7, grep_app, codegraph.',
+      ),
     prompt: z.string().min(1).optional(),
     orchestratorPrompt: z.string().min(1).optional(),
     options: z.record(z.string(), z.unknown()).optional(), // provider-specific model options (e.g., textVerbosity, thinking budget)
@@ -163,7 +168,12 @@ export const WebsearchConfigSchema = z.object({
 export type WebsearchConfig = z.infer<typeof WebsearchConfigSchema>;
 
 // MCP names
-export const McpNameSchema = z.enum(['websearch', 'context7', 'grep_app']);
+export const McpNameSchema = z.enum([
+  'websearch',
+  'context7',
+  'grep_app',
+  'codegraph',
+]);
 export type McpName = z.infer<typeof McpNameSchema>;
 
 export const InterviewConfigSchema = z.object({
@@ -341,7 +351,12 @@ export const PluginConfigSchema = z
           'Orchestrator and council internal agents (councillor) cannot be disabled. ' +
           "By default, 'observer' is disabled. Remove it from this list and configure a vision-capable model to enable.",
       ),
-    disabled_mcps: z.array(z.string()).optional(),
+    disabled_mcps: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'MCP server IDs to disable globally. Built-ins: websearch, context7, grep_app, codegraph.',
+      ),
     // Multiplexer config (new unified config - preferred)
     multiplexer: MultiplexerConfigSchema.optional(),
     // Legacy tmux config (for backward compatibility)

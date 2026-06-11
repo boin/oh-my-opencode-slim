@@ -43,6 +43,7 @@ import {
 import {
   ast_grep_replace,
   ast_grep_search,
+  createCodegraphCommandManager,
   createCouncilTool,
   createPresetManager,
   createReadSessionTool,
@@ -147,6 +148,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let taskSessionManagerHook: ReturnType<typeof createTaskSessionManagerHook>;
   let interviewManager: ReturnType<typeof createInterviewManager>;
   let presetManager: ReturnType<typeof createPresetManager>;
+  let codegraphCommandManager: ReturnType<typeof createCodegraphCommandManager>;
   let divoomManager: ReturnType<typeof createDivoomManager>;
   let councilTools: Record<string, unknown>;
   let webfetch: ReturnType<typeof createWebfetchTool>;
@@ -263,7 +265,9 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         )
       : {};
 
-    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch);
+    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch, {
+      projectPath: ctx.worktree,
+    });
     webfetch = createWebfetchTool(ctx);
 
     // Initialize MultiplexerSessionManager to handle OpenCode's built-in
@@ -334,6 +338,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     });
     interviewManager = createInterviewManager(ctx, config);
     presetManager = createPresetManager(ctx, config);
+    codegraphCommandManager = createCodegraphCommandManager(ctx);
     divoomManager = createDivoomManager(config.divoom);
 
     subtaskState = createSubtaskState();
@@ -761,6 +766,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       interviewManager.registerCommand(opencodeConfig);
       sessionGoalHook.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
+      codegraphCommandManager.registerCommand(opencodeConfig);
       subtaskCommandManager.registerCommand(opencodeConfig);
     },
 
@@ -980,6 +986,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       );
 
       await presetManager.handleCommandExecuteBefore(
+        input as {
+          command: string;
+          sessionID: string;
+          arguments: string;
+        },
+        output as { parts: Array<{ type: string; text?: string }> },
+      );
+
+      await codegraphCommandManager.handleCommandExecuteBefore(
         input as {
           command: string;
           sessionID: string;

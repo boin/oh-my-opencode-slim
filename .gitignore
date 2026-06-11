@@ -50,6 +50,9 @@ opencode.jsonc
 # AI Memory
 .aim/
 
+# Local CodeGraph index
+.codegraph/
+
 # Planning docs (not for commit)
 TIMEOUT_PLAN.md
 GOAL.md

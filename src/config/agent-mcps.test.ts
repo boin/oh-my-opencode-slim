@@ -51,4 +51,38 @@ describe('parseList', () => {
   test('exclusions without matching allows', () => {
     expect(parseList(['!mcp2'], ['mcp1', 'mcp2', 'mcp3'])).toEqual([]);
   });
+
+  test('agent MCP defaults grant CodeGraph to orchestrator via wildcard', () => {
+    expect(DEFAULT_AGENT_MCPS.orchestrator).toContain('*');
+    expect(
+      parseList(DEFAULT_AGENT_MCPS.orchestrator, [
+        'websearch',
+        'context7',
+        'grep_app',
+        'codegraph',
+      ]),
+    ).toContain('codegraph');
+  });
+
+  test('agent MCP defaults grant CodeGraph to explorer and oracle', () => {
+    const availableMcps = ['websearch', 'context7', 'grep_app', 'codegraph'];
+
+    expect(parseList(DEFAULT_AGENT_MCPS.explorer, availableMcps)).toContain(
+      'codegraph',
+    );
+    expect(parseList(DEFAULT_AGENT_MCPS.oracle, availableMcps)).toContain(
+      'codegraph',
+    );
+  });
+
+  test('agent MCP defaults deny CodeGraph to fixer', () => {
+    expect(
+      parseList(DEFAULT_AGENT_MCPS.fixer, [
+        'websearch',
+        'context7',
+        'grep_app',
+        'codegraph',
+      ]),
+    ).not.toContain('codegraph');
+  });
 });

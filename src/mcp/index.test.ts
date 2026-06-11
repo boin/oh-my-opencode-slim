@@ -93,4 +93,77 @@ describe('createBuiltinMcps', () => {
     expect(grep_app).toBeDefined();
     expect('url' in grep_app).toBe(true);
   });
+
+  test('includes compatible CodeGraph as local MCP bound to project path', () => {
+    const mcps = createBuiltinMcps([], undefined, {
+      projectPath: '/repo',
+      codegraphProbe: () => ({ status: 'ready', version: '0.9.9' }),
+    });
+    const codegraph = mcps.codegraph;
+
+    expect(codegraph).toBeDefined();
+    expect(codegraph?.type).toBe('local');
+    expect(codegraph && 'command' in codegraph).toBe(true);
+    if (!codegraph || !('command' in codegraph)) {
+      return;
+    }
+    expect(codegraph.command).toContain('codegraph');
+    expect(codegraph.command).toContain('serve');
+    expect(codegraph.command).toContain('--mcp');
+    expect(codegraph.command).toContain('/repo');
+  });
+
+  test('omits CodeGraph without throwing when binary probe is missing', () => {
+    let probeCalls = 0;
+
+    const mcps = createBuiltinMcps([], undefined, {
+      projectPath: '/repo',
+      codegraphProbe: () => {
+        probeCalls += 1;
+        return { status: 'missing' };
+      },
+    });
+
+    expect(probeCalls).toBe(1);
+    expect(mcps.codegraph).toBeUndefined();
+  });
+
+  test('omits CodeGraph without throwing when binary is too old', () => {
+    let probeCalls = 0;
+
+    const mcps = createBuiltinMcps([], undefined, {
+      projectPath: '/repo',
+      codegraphProbe: () => {
+        probeCalls += 1;
+        return { status: 'incompatible', version: '0.9.7' };
+      },
+    });
+
+    expect(probeCalls).toBe(1);
+    expect(mcps.codegraph).toBeUndefined();
+  });
+
+  test('disabled CodeGraph is omitted even when binary is ready', () => {
+    let probeCalls = 0;
+
+    const mcps = createBuiltinMcps(['codegraph'], undefined, {
+      projectPath: '/repo',
+      codegraphProbe: () => {
+        probeCalls += 1;
+        return { status: 'ready', version: '0.9.9' };
+      },
+    });
+
+    expect(probeCalls).toBe(0);
+    expect(mcps.codegraph).toBeUndefined();
+  });
+
+  test('CodeGraph readiness uses probe injection without init or index commands', () => {
+    const mcps = createBuiltinMcps([], undefined, {
+      projectPath: '/repo',
+      codegraphProbe: () => ({ status: 'ready', version: '0.9.9' }),
+    });
+
+    expect(mcps.codegraph).toBeDefined();
+  });
 });

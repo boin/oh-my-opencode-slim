@@ -93,12 +93,39 @@ Inline TDD is allowed for minor or known-small work, but red → green → refac
 ordering still applies. Detailed risk matrices, thresholds, examples, and
 observability live in spec/rule docs; keep this always-on prompt compact.`;
 
+const CONCISE_OUTPUT_AND_FOLLOWUP = `## Concise User Output and Specialist Follow-up Reuse
+
+User-facing output should be route-first and terse. Default to route, reason,
+next action, and status. Do not expose raw reasoning, long evidence chains, or
+full child summaries by default. Expose evidence only for failure, approval, high risk,
+surprising result, or user request.
+
+Specialist follow-up should reuse the previous task session and be delta-scoped
+when same topic/scope and narrow-delta checks hold. Delta prompts must include
+previous task_id, previous verdict, required fixes, changed files, applied delta,
+and validation result.
+
+Do not use delta follow-up when validation was not rerun or now fails,
+files or anchors changed outside prior scope, API/data/security/persistence/workflow or
+product semantics changed, the prior review scope was incomplete, or the user asks for a fresh review.
+
+Use same-session delta follow-up for narrow fixes, same-session full re-review
+when the prior context is useful but semantics or files changed, and
+new-session full review when scope changes or a fresh reviewer is needed. Delta
+follow-up output stays terse: fixed yes/no, new risk yes/no, verdict, and only
+required fixes when present.`;
+
 const ROUTING = `## Routing (three change strategies)
 
-Decide once per task, announce in one line, proceed.
+Before choosing a route, inspect fresh git status for the target repository
+and base the decision on that evidence. If the user's reported status conflicts
+with the observed status, verify cwd, branch, and worktree before announcing a
+route.
+
+Decide once per task, announce the evidence in one line, proceed.
 
 \`\`\`
-git status shows uncommitted changes?
+git status --short --branch shows uncommitted changes?
   YES → worktree route (work in a new git worktree, merge back via PR)
   NO  → estimate (files_touched, lines_changed, spec_anchored)
     files > 1 OR lines > 50 OR spec_anchored
@@ -204,6 +231,7 @@ export function buildSddTddAppendBlock(): string {
   return [
     SDD_WORKFLOW,
     DELEGATION_BUDGET,
+    CONCISE_OUTPUT_AND_FOLLOWUP,
     ROUTING,
     TDD_DISCIPLINE,
     DEBUGGING,

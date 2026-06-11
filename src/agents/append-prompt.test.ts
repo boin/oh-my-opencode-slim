@@ -21,6 +21,15 @@ describe('append-prompt', () => {
     expect(block).toContain('direct');
   });
 
+  test('requires fresh git status evidence before route selection', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('inspect fresh git status');
+    expect(block).toContain('git status --short --branch');
+    expect(block).toContain('verify cwd, branch, and worktree');
+    expect(block).toContain('announce the evidence');
+  });
+
   test('includes distilled TDD rules', () => {
     const block = buildSddTddAppendBlock();
     expect(block).toContain('Red');

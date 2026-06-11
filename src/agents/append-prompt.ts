@@ -95,10 +95,15 @@ observability live in spec/rule docs; keep this always-on prompt compact.`;
 
 const ROUTING = `## Routing (three change strategies)
 
-Decide once per task, announce in one line, proceed.
+Before choosing a route, inspect fresh git status for the target repository
+and base the decision on that evidence. If the user's reported status conflicts
+with the observed status, verify cwd, branch, and worktree before announcing a
+route.
+
+Decide once per task, announce the evidence in one line, proceed.
 
 \`\`\`
-git status shows uncommitted changes?
+git status --short --branch shows uncommitted changes?
   YES → worktree route (work in a new git worktree, merge back via PR)
   NO  → estimate (files_touched, lines_changed, spec_anchored)
     files > 1 OR lines > 50 OR spec_anchored

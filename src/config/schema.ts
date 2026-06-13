@@ -129,6 +129,10 @@ export const MultiplexerLayoutSchema = z.enum([
 
 export type MultiplexerLayout = z.infer<typeof MultiplexerLayoutSchema>;
 
+// Zellij pane placement options
+export const ZellijPaneModeSchema = z.enum(['agent-tab', 'current-tab']);
+export type ZellijPaneMode = z.infer<typeof ZellijPaneModeSchema>;
+
 // Legacy Tmux layout options (for backward compatibility)
 export const TmuxLayoutSchema = MultiplexerLayoutSchema;
 export type TmuxLayout = MultiplexerLayout;
@@ -138,6 +142,7 @@ export const MultiplexerConfigSchema = z.object({
   type: MultiplexerTypeSchema.default('none'),
   layout: MultiplexerLayoutSchema.default('main-vertical'),
   main_pane_size: z.number().min(20).max(80).default(60), // percentage for main pane
+  zellij_pane_mode: ZellijPaneModeSchema.default('agent-tab'),
 });
 
 export type MultiplexerConfig = z.infer<typeof MultiplexerConfigSchema>;
@@ -171,7 +176,7 @@ export type WebsearchConfig = z.infer<typeof WebsearchConfigSchema>;
 export const McpNameSchema = z.enum([
   'websearch',
   'context7',
-  'grep_app',
+  'gh_grep',
   'codegraph',
 ]);
 export type McpName = z.infer<typeof McpNameSchema>;
@@ -191,93 +196,13 @@ export const InterviewConfigSchema = z.object({
 
 export type InterviewConfig = z.infer<typeof InterviewConfigSchema>;
 
-export const SessionManagerConfigSchema = z.object({
+export const BackgroundJobsConfigSchema = z.object({
   maxSessionsPerAgent: z.number().int().min(1).max(10).default(2),
   readContextMinLines: z.number().int().min(0).max(1000).default(10),
   readContextMaxFiles: z.number().int().min(0).max(50).default(8),
 });
 
-export type SessionManagerConfig = z.infer<typeof SessionManagerConfigSchema>;
-
-export const DivoomConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  python: z
-    .string()
-    .min(1)
-    .default(
-      '/Applications/Divoom MiniToo.app/Contents/Resources/.venv/bin/python',
-    ),
-  script: z
-    .string()
-    .min(1)
-    .default(
-      '/Applications/Divoom MiniToo.app/Contents/Resources/tools/divoom_send.py',
-    ),
-  size: z.number().int().min(1).max(1024).default(128),
-  fps: z.number().int().min(1).max(60).default(8),
-  speed: z.number().int().min(1).max(10_000).default(125),
-  maxFrames: z.number().int().min(1).max(500).default(24),
-  posterizeBits: z.number().int().min(1).max(8).default(3),
-  gifs: z.record(z.string(), z.string().min(1)).optional(),
-});
-
-export type DivoomConfig = z.infer<typeof DivoomConfigSchema>;
-
-// Todo continuation configuration
-export const TodoContinuationConfigSchema = z.object({
-  maxContinuations: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(5)
-    .describe(
-      'Maximum consecutive auto-continuations before stopping to ask user',
-    ),
-  cooldownMs: z
-    .number()
-    .int()
-    .min(0)
-    .max(30_000)
-    .default(3000)
-    .describe('Delay in ms before auto-continuing (gives user time to abort)'),
-  autoEnable: z
-    .boolean()
-    .default(false)
-    .describe(
-      'Automatically enable auto-continue when the orchestrator session has enough todos',
-    ),
-  autoEnableThreshold: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(4)
-    .describe(
-      'Number of todos that triggers auto-enable (only used when autoEnable is true)',
-    ),
-});
-
-export type TodoContinuationConfig = z.infer<
-  typeof TodoContinuationConfigSchema
->;
-
-export const SubtaskConfigSchema = z.object({
-  // Intentionally no .default(): an empty `subtask: {}` block must parse to
-  // `{}` so it cannot shallow-overwrite an inherited value during config
-  // merging. The runtime fallback in createSubtaskTool applies the default.
-  timeoutMs: z
-    .number()
-    .int()
-    .min(0)
-    .max(24 * 60 * 60 * 1000)
-    .optional()
-    .describe(
-      'Subtask worker timeout in ms. 0 disables the timeout. Defaults to 300000 (5 minutes).',
-    ),
-});
-
-export type SubtaskConfig = z.infer<typeof SubtaskConfigSchema>;
+export type BackgroundJobsConfig = z.infer<typeof BackgroundJobsConfigSchema>;
 
 export const FailoverConfigSchema = z.object({
   enabled: z.boolean().default(true),
@@ -294,6 +219,16 @@ export const FailoverConfigSchema = z.object({
 });
 
 export type FailoverConfig = z.infer<typeof FailoverConfigSchema>;
+
+export const CompanionConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  position: z
+    .enum(['bottom-right', 'bottom-left', 'top-right', 'top-left'])
+    .optional(),
+  size: z.enum(['small', 'medium', 'large']).optional(),
+});
+
+export type CompanionConfig = z.infer<typeof CompanionConfigSchema>;
 
 function validateCustomOnlyPromptFields(
   overrides: Record<string, z.infer<typeof AgentOverrideConfigSchema>>,
@@ -364,12 +299,10 @@ export const PluginConfigSchema = z
     tmux: TmuxConfigSchema.optional(),
     websearch: WebsearchConfigSchema.optional(),
     interview: InterviewConfigSchema.optional(),
-    sessionManager: SessionManagerConfigSchema.optional(),
-    divoom: DivoomConfigSchema.optional(),
-    todoContinuation: TodoContinuationConfigSchema.optional(),
-    subtask: SubtaskConfigSchema.optional(),
+    backgroundJobs: BackgroundJobsConfigSchema.optional(),
     fallback: FailoverConfigSchema.optional(),
     council: CouncilConfigSchema.optional(),
+    companion: CompanionConfigSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (value.agents) {

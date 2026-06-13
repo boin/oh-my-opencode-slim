@@ -200,11 +200,13 @@ export function mergePluginConfigs(
     tmux: deepMerge(base.tmux, override.tmux),
     multiplexer: deepMerge(base.multiplexer, override.multiplexer),
     interview: deepMerge(base.interview, override.interview),
-    sessionManager: deepMerge(base.sessionManager, override.sessionManager),
-    divoom: deepMerge(base.divoom, override.divoom),
+    backgroundJobs: deepMerge(base.backgroundJobs, override.backgroundJobs),
     fallback: deepMerge(base.fallback, override.fallback),
     council: deepMerge(base.council, override.council),
-    subtask: deepMerge(base.subtask, override.subtask),
+    companion: deepMerge(
+      base.companion as Record<string, unknown> | undefined,
+      override.companion as Record<string, unknown> | undefined,
+    ) as PluginConfig['companion'],
   };
 }
 
@@ -315,6 +317,15 @@ export function loadPluginConfig(
     }
   }
 
+  // Normalize companion config defaults
+  if (config.companion) {
+    config.companion = {
+      enabled: config.companion.enabled ?? false,
+      position: config.companion.position ?? 'bottom-right',
+      size: config.companion.size ?? 'medium',
+    };
+  }
+
   return config;
 }
 
@@ -405,6 +416,7 @@ function migrateTmuxToMultiplexer(config: PluginConfig): PluginConfig {
         type: 'tmux',
         layout: config.tmux.layout ?? 'main-vertical',
         main_pane_size: config.tmux.main_pane_size ?? 60,
+        zellij_pane_mode: 'agent-tab',
       },
     };
   }

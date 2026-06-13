@@ -19,6 +19,7 @@ describe('providers', () => {
     const config = generateLiteConfig({
       hasTmux: false,
       installCustomSkills: false,
+      backgroundSubagents: 'no',
       reset: false,
     });
 
@@ -34,8 +35,8 @@ describe('providers', () => {
     const agents = (config.presets as any).openai;
     expect(agents).toBeDefined();
     expect(agents.orchestrator.model).toBe('openai/gpt-5.5');
-    expect(agents.orchestrator.variant).toBeUndefined();
-    expect(agents.fixer.model).toBe('openai/gpt-5.4-mini');
+    expect(agents.orchestrator.variant).toBe('medium');
+    expect(agents.fixer.model).toBe('openai/gpt-5.5');
     expect(agents.fixer.variant).toBe('low');
   });
 
@@ -43,6 +44,7 @@ describe('providers', () => {
     const config = generateLiteConfig({
       hasTmux: false,
       installCustomSkills: false,
+      backgroundSubagents: 'no',
       reset: false,
     });
 
@@ -131,10 +133,45 @@ describe('providers', () => {
     expect((config.tmux as any).layout).toBe('main-vertical');
   });
 
+  test('generateLiteConfig companion: yes', () => {
+    const config = generateLiteConfig({
+      hasTmux: false,
+      installCustomSkills: false,
+      backgroundSubagents: 'no',
+      reset: false,
+      companion: 'yes',
+    });
+
+    expect(config.companion).toBeDefined();
+    expect((config.companion as any).enabled).toBe(true);
+    expect((config.companion as any).position).toBe('bottom-right');
+    expect((config.companion as any).size).toBe('medium');
+  });
+
+  test('generateLiteConfig companion: no or omitted', () => {
+    const configYes = generateLiteConfig({
+      hasTmux: false,
+      installCustomSkills: false,
+      backgroundSubagents: 'no',
+      reset: false,
+      companion: 'no',
+    });
+    expect(configYes.companion).toBeUndefined();
+
+    const configOmitted = generateLiteConfig({
+      hasTmux: false,
+      installCustomSkills: false,
+      backgroundSubagents: 'no',
+      reset: false,
+    });
+    expect(configOmitted.companion).toBeUndefined();
+  });
+
   test('generateLiteConfig includes default skills', () => {
     const config = generateLiteConfig({
       hasTmux: false,
       installCustomSkills: false,
+      backgroundSubagents: 'no',
       reset: false,
     });
 
@@ -162,6 +199,7 @@ describe('providers', () => {
     const config = generateLiteConfig({
       hasTmux: false,
       installCustomSkills: false,
+      backgroundSubagents: 'no',
       reset: false,
     });
 
@@ -176,6 +214,7 @@ describe('providers', () => {
     const config = generateLiteConfig({
       hasTmux: false,
       installCustomSkills: false,
+      backgroundSubagents: 'no',
       reset: false,
     });
 
@@ -183,7 +222,7 @@ describe('providers', () => {
     expect(agents.orchestrator.mcps).toEqual(['*', '!context7']);
     expect(agents.librarian.mcps).toContain('websearch');
     expect(agents.librarian.mcps).toContain('context7');
-    expect(agents.librarian.mcps).toContain('grep_app');
+    expect(agents.librarian.mcps).toContain('gh_grep');
     expect(agents.designer.mcps).toEqual([]);
   });
 });

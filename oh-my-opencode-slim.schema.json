@@ -416,6 +416,14 @@
           "type": "number",
           "minimum": 20,
           "maximum": 80
+        },
+        "zellij_pane_mode": {
+          "default": "agent-tab",
+          "type": "string",
+          "enum": [
+            "agent-tab",
+            "current-tab"
+          ]
         }
       }
     },
@@ -489,7 +497,7 @@
         }
       }
     },
-    "sessionManager": {
+    "backgroundJobs": {
       "type": "object",
       "properties": {
         "maxSessionsPerAgent": {
@@ -509,107 +517,6 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 50
-        }
-      }
-    },
-    "divoom": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "type": "boolean"
-        },
-        "python": {
-          "default": "/Applications/Divoom MiniToo.app/Contents/Resources/.venv/bin/python",
-          "type": "string",
-          "minLength": 1
-        },
-        "script": {
-          "default": "/Applications/Divoom MiniToo.app/Contents/Resources/tools/divoom_send.py",
-          "type": "string",
-          "minLength": 1
-        },
-        "size": {
-          "default": 128,
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 1024
-        },
-        "fps": {
-          "default": 8,
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 60
-        },
-        "speed": {
-          "default": 125,
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10000
-        },
-        "maxFrames": {
-          "default": 24,
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 500
-        },
-        "posterizeBits": {
-          "default": 3,
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8
-        },
-        "gifs": {
-          "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      }
-    },
-    "todoContinuation": {
-      "type": "object",
-      "properties": {
-        "maxContinuations": {
-          "default": 5,
-          "description": "Maximum consecutive auto-continuations before stopping to ask user",
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 50
-        },
-        "cooldownMs": {
-          "default": 3000,
-          "description": "Delay in ms before auto-continuing (gives user time to abort)",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 30000
-        },
-        "autoEnable": {
-          "default": false,
-          "description": "Automatically enable auto-continue when the orchestrator session has enough todos",
-          "type": "boolean"
-        },
-        "autoEnableThreshold": {
-          "default": 4,
-          "description": "Number of todos that triggers auto-enable (only used when autoEnable is true)",
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 50
-        }
-      }
-    },
-    "subtask": {
-      "type": "object",
-      "properties": {
-        "timeoutMs": {
-          "description": "Subtask worker timeout in ms. 0 disables the timeout. Defaults to 300000 (5 minutes).",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 86400000
         }
       }
     },
@@ -752,6 +659,31 @@
       "required": [
         "presets"
       ]
+    },
+    "companion": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "position": {
+          "type": "string",
+          "enum": [
+            "bottom-right",
+            "bottom-left",
+            "top-right",
+            "top-left"
+          ]
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "medium",
+            "large"
+          ]
+        }
+      }
     }
   },
   "title": "oh-my-opencode-slim",

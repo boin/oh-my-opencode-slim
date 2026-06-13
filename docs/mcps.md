@@ -10,7 +10,7 @@ Built-in Model Context Protocol (MCP) servers ship with oh-my-opencode-slim and 
 |-----|---------|----------|
 | `websearch` | Real-time web search via Exa AI | `https://mcp.exa.ai/mcp` |
 | `context7` | Official library documentation (up-to-date) | `https://mcp.context7.com/mcp` |
-| `grep_app` | GitHub code search via grep.app | `https://mcp.grep.app` |
+| `gh_grep` | GitHub code search via grep.app | `https://mcp.grep.app` |
 | `codegraph` | Local project code graph via CodeGraph | `codegraph serve --mcp --path <project>` |
 
 `codegraph` is registered only when a compatible CodeGraph binary (`0.9.9` or
@@ -26,7 +26,7 @@ client sessions from needing a restart after a project index is initialized.
 | Agent | Default MCPs |
 |-------|-------------|
 | `orchestrator` | `*`, `!context7` |
-| `librarian` | `websearch`, `context7`, `grep_app` |
+| `librarian` | `websearch`, `context7`, `gh_grep` |
 | `designer` | none |
 | `oracle` | `codegraph` |
 | `explorer` | `codegraph` |
@@ -95,7 +95,7 @@ Control which MCPs each agent can use via the `mcps` array in your preset config
         "mcps": ["*", "!context7"]
       },
       "librarian": {
-        "mcps": ["websearch", "context7", "grep_app"]
+        "mcps": ["websearch", "context7", "gh_grep"]
       },
       "oracle": {
         "mcps": ["*", "!websearch"]

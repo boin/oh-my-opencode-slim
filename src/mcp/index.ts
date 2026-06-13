@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import type { McpName, WebsearchConfig } from '../config';
 import { context7 } from './context7';
-import { grep_app } from './grep-app';
+import { gh_grep } from './grep-app';
 import type { McpConfig } from './types';
 import { createWebsearchConfig, websearch } from './websearch';
 
@@ -12,7 +12,7 @@ type StaticMcpName = Exclude<McpName, 'codegraph'>;
 const allBuiltinMcps: Record<StaticMcpName, McpConfig> = {
   websearch,
   context7,
-  grep_app,
+  gh_grep,
 };
 
 const CODEGRAPH_MIN_VERSION = '0.9.9';

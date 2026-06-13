@@ -53,6 +53,39 @@ export const CUSTOM_SKILLS: CustomSkill[] = [
     allowedAgents: ['orchestrator'],
     sourcePath: 'src/skills/grill',
   },
+  {
+    name: 'brainstorming',
+    description:
+      'Fuzzy front-end ideation for non-SDD repositories before formal specification',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/brainstorming',
+  },
+  {
+    name: 'using-git-worktrees',
+    description: 'Use git worktrees for isolated feature work',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/using-git-worktrees',
+  },
+  {
+    name: 'finishing-a-development-branch',
+    description: 'End-of-branch merge, PR, keep, or discard decision workflow',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/finishing-a-development-branch',
+  },
+  {
+    name: 'deepwork',
+    description:
+      'Heavy/complex coding sessions and large modifications workflow',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/deepwork',
+  },
+  {
+    name: 'oh-my-opencode-slim',
+    description:
+      'Configure, customize, and safely improve oh-my-opencode-slim setups',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/skills/oh-my-opencode-slim',
+  },
 ];
 
 /**

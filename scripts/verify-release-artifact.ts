@@ -29,19 +29,12 @@ const packagedRequiredFiles = [
   'dist/index.js',
   'dist/index.d.ts',
   'dist/cli/index.js',
-  'dist/divoom/council.gif',
-  'dist/divoom/designer.gif',
-  'dist/divoom/explorer.gif',
-  'dist/divoom/fixer.gif',
-  'dist/divoom/input.gif',
-  'dist/divoom/intro.gif',
-  'dist/divoom/librarian.gif',
-  'dist/divoom/oracle.gif',
-  'dist/divoom/orchestrator.gif',
   'oh-my-opencode-slim.schema.json',
   'src/skills/simplify/SKILL.md',
   'src/skills/codemap/SKILL.md',
   'src/skills/clonedeps/SKILL.md',
+  'src/skills/deepwork/SKILL.md',
+  'src/skills/oh-my-opencode-slim/SKILL.md',
 ];
 
 function fail(message: string): never {

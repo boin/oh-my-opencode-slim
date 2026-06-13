@@ -1,6 +1,7 @@
 import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs, getDisabledAgents } from './agents';
 import { buildOrchestratorPrompt } from './agents/orchestrator';
+import { CompanionManager } from './companion/manager';
 import {
   type AgentOverrideConfig,
   deepMerge,
@@ -16,19 +17,17 @@ import {
   setActiveRuntimePreset,
 } from './config/runtime-preset';
 import { CouncilManager } from './council';
-import { createDivoomManager } from './divoom/manager';
 import {
   createApplyPatchHook,
   createAutoUpdateCheckerHook,
   createChatHeadersHook,
+  createDeepworkCommandHook,
   createDelegateTaskRetryHook,
   createFilterAvailableSkillsHook,
   createJsonErrorRecoveryHook,
   createPhaseReminderHook,
   createPostFileToolNudgeHook,
-  createSessionGoalHook,
   createTaskSessionManagerHook,
-  createTodoContinuationHook,
   createTraceFreshnessHook,
   ForegroundFallbackManager,
 } from './hooks';
@@ -43,19 +42,17 @@ import {
 import {
   ast_grep_replace,
   ast_grep_search,
+  createCancelTaskTool,
   createCodegraphCommandManager,
   createCouncilTool,
   createPresetManager,
-  createReadSessionTool,
   createSpecTools,
-  createSubtaskCommandManager,
-  createSubtaskState,
-  createSubtaskTool,
   createTraceTool,
   createWebfetchTool,
 } from './tools';
 import { recordTuiAgentModel, recordTuiAgentModels } from './tui-state';
 import {
+  BackgroundJobBoard,
   createDisplayNameMentionRewriter,
   resolveRuntimeAgentName,
 } from './utils';
@@ -143,20 +140,19 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let applyPatchHook: ReturnType<typeof createApplyPatchHook>;
   let jsonErrorRecoveryHook: ReturnType<typeof createJsonErrorRecoveryHook>;
   let foregroundFallback: ForegroundFallbackManager;
-  let todoContinuationHook: ReturnType<typeof createTodoContinuationHook>;
-  let sessionGoalHook: ReturnType<typeof createSessionGoalHook>;
+  let deepworkCommandHook: ReturnType<typeof createDeepworkCommandHook>;
   let taskSessionManagerHook: ReturnType<typeof createTaskSessionManagerHook>;
+  let backgroundJobBoard: BackgroundJobBoard;
   let interviewManager: ReturnType<typeof createInterviewManager>;
   let presetManager: ReturnType<typeof createPresetManager>;
   let codegraphCommandManager: ReturnType<typeof createCodegraphCommandManager>;
-  let divoomManager: ReturnType<typeof createDivoomManager>;
+  let companionManager: CompanionManager;
   let councilTools: Record<string, unknown>;
+  let cancelTaskTools: Record<string, unknown>;
   let webfetch: ReturnType<typeof createWebfetchTool>;
   let rewriteDisplayNameMentions: ReturnType<
     typeof createDisplayNameMentionRewriter
   >;
-  let subtaskCommandManager: ReturnType<typeof createSubtaskCommandManager>;
-  let subtaskState: ReturnType<typeof createSubtaskState>;
 
   // Counters for post-init health check (set inside try, checked outside)
   let toolCount = 0;
@@ -235,6 +231,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       type: config.multiplexer?.type ?? 'none',
       layout: config.multiplexer?.layout ?? 'main-vertical',
       main_pane_size: config.multiplexer?.main_pane_size ?? 60,
+      zellij_pane_mode: config.multiplexer?.zellij_pane_mode ?? 'agent-tab',
     };
 
     // Get multiplexer instance for capability checks
@@ -269,12 +266,18 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       projectPath: ctx.worktree,
     });
     webfetch = createWebfetchTool(ctx);
+    backgroundJobBoard = new BackgroundJobBoard({
+      maxReusablePerAgent: config.backgroundJobs?.maxSessionsPerAgent ?? 2,
+      readContextMinLines: config.backgroundJobs?.readContextMinLines ?? 10,
+      readContextMaxFiles: config.backgroundJobs?.readContextMaxFiles ?? 8,
+    });
 
     // Initialize MultiplexerSessionManager to handle OpenCode's built-in
     // Task tool sessions
     multiplexerSessionManager = new MultiplexerSessionManager(
       ctx,
       multiplexerConfig,
+      backgroundJobBoard,
     );
 
     // Initialize auto-update checker hook
@@ -318,38 +321,35 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         Object.keys(runtimeChains).length > 0,
     );
 
-    // Initialize todo-continuation hook (opt-in auto-continue for
-    // incomplete todos)
-    todoContinuationHook = createTodoContinuationHook(ctx, {
-      maxContinuations: config.todoContinuation?.maxContinuations ?? 5,
-      cooldownMs: config.todoContinuation?.cooldownMs ?? 3000,
-      autoEnable: config.todoContinuation?.autoEnable ?? false,
-      autoEnableThreshold: config.todoContinuation?.autoEnableThreshold ?? 4,
-    });
-    sessionGoalHook = createSessionGoalHook(ctx, config, {
-      getAgentName: (sessionID) => sessionAgentMap.get(sessionID),
-    });
+    deepworkCommandHook = createDeepworkCommandHook();
     taskSessionManagerHook = createTaskSessionManagerHook(ctx, {
-      maxSessionsPerAgent: config.sessionManager?.maxSessionsPerAgent ?? 2,
-      readContextMinLines: config.sessionManager?.readContextMinLines ?? 10,
-      readContextMaxFiles: config.sessionManager?.readContextMaxFiles ?? 8,
+      maxSessionsPerAgent: config.backgroundJobs?.maxSessionsPerAgent ?? 2,
+      readContextMinLines: config.backgroundJobs?.readContextMinLines ?? 10,
+      readContextMaxFiles: config.backgroundJobs?.readContextMaxFiles ?? 8,
+      backgroundJobBoard,
       shouldManageSession: (sessionID) =>
         sessionAgentMap.get(sessionID) === 'orchestrator',
     });
     interviewManager = createInterviewManager(ctx, config);
     presetManager = createPresetManager(ctx, config);
     codegraphCommandManager = createCodegraphCommandManager(ctx);
-    divoomManager = createDivoomManager(config.divoom);
-
-    subtaskState = createSubtaskState();
-    subtaskCommandManager = createSubtaskCommandManager(ctx, subtaskState);
+    companionManager = new CompanionManager(
+      `proc_${process.pid}`,
+      ctx.directory,
+      config.companion,
+    );
+    cancelTaskTools = createCancelTaskTool({
+      client: ctx.client,
+      backgroundJobBoard,
+      shouldManageSession: (sessionID) =>
+        sessionAgentMap.get(sessionID) === 'orchestrator',
+    });
 
     toolCount =
       Object.keys(councilTools).length +
-      Object.keys(todoContinuationHook.tool).length +
+      Object.keys(cancelTaskTools).length +
       1 + // webfetch
-      2 + // ast_grep_search, ast_grep_replace
-      2; // subtask, read_session
+      2; // ast_grep_search, ast_grep_replace
   } catch (err) {
     // Plugin init failed: log visibly before re-throwing so the user
     // sees something actionable instead of a silent "loaded but empty".
@@ -406,7 +406,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     }
   });
 
-  divoomManager.onPluginLoad();
+  companionManager.onLoad();
 
   return {
     name: 'oh-my-opencode-slim',
@@ -417,14 +417,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       ...councilTools,
       ...createTraceTool(ctx),
       ...createSpecTools(ctx),
+      ...cancelTaskTools,
       webfetch,
-      ...todoContinuationHook.tool,
       ast_grep_search,
       ast_grep_replace,
-      subtask: createSubtaskTool(ctx, subtaskState, depthTracker, {
-        timeoutMs: config.subtask?.timeoutMs,
-      }),
-      read_session: createReadSessionTool(ctx.client, subtaskState),
     },
 
     mcp: mcps,
@@ -746,28 +742,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         agentConfigEntry.permission = agentPermission;
       }
 
-      // Register /auto-continue command so OpenCode recognizes it.
-      // Actual handling is done by command.execute.before hook below
-      // (no LLM round-trip — injected directly into output.parts).
-      const configCommand = opencodeConfig.command as
-        | Record<string, unknown>
-        | undefined;
-      if (!configCommand?.['auto-continue']) {
-        if (!opencodeConfig.command) {
-          opencodeConfig.command = {};
-        }
-        (opencodeConfig.command as Record<string, unknown>)['auto-continue'] = {
-          template: 'Call the auto_continue tool with enabled=true',
-          description:
-            'Enable auto-continuation — orchestrator keeps working through incomplete todos',
-        };
-      }
-
       interviewManager.registerCommand(opencodeConfig);
-      sessionGoalHook.registerCommand(opencodeConfig);
+      deepworkCommandHook.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
       codegraphCommandManager.registerCommand(opencodeConfig);
-      subtaskCommandManager.registerCommand(opencodeConfig);
     },
 
     event: async (input) => {
@@ -825,15 +803,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       // Runtime model fallback for foreground agents (rate-limit detection)
       await foregroundFallback.handleEvent(input.event);
 
-      // Todo-continuation: auto-continue orchestrator on incomplete todos
-      await todoContinuationHook.handleEvent(input);
-
-      sessionGoalHook.handleEvent(
-        input as {
-          event: { type: string; properties?: Record<string, unknown> };
-        },
-      );
-
       // Handle auto-update checking
       await autoUpdateChecker.event(input);
 
@@ -852,29 +821,11 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
       );
 
-      subtaskCommandManager.handleEvent(
-        input as {
-          event: {
-            type: string;
-            properties?: {
-              info?: { id?: string; parentID?: string };
-              sessionID?: string;
-            };
-          };
-        },
-      );
-
       if (
         event.type === 'permission.asked' ||
         event.type === 'question.asked'
       ) {
-        const props = event.properties as
-          | { sessionID?: string; id?: string; requestID?: string }
-          | undefined;
-        divoomManager.onUserInputRequired({
-          sessionId: props?.sessionID,
-          requestId: props?.id ?? props?.requestID,
-        });
+        companionManager.onWaitingInput();
       }
 
       if (
@@ -882,13 +833,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         event.type === 'question.replied' ||
         event.type === 'question.rejected'
       ) {
-        const props = event.properties as
-          | { sessionID?: string; requestID?: string; id?: string }
-          | undefined;
-        divoomManager.onUserInputResolved({
-          sessionId: props?.sessionID,
-          requestId: props?.requestID ?? props?.id,
-        });
+        companionManager.onInputResolved();
       }
 
       if (input.event.type === 'session.status') {
@@ -896,12 +841,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
           | { sessionID?: string; status?: { type?: string } }
           | undefined;
         const sessionID = props?.sessionID;
-        divoomManager.onOrchestratorStatus({
+        companionManager.onSessionStatus({
           sessionId: sessionID,
+          agent: sessionID ? sessionAgentMap.get(sessionID) : undefined,
           status: props?.status?.type,
-          isOrchestrator: sessionID
-            ? sessionAgentMap.get(sessionID) === 'orchestrator'
-            : false,
         });
       }
 
@@ -910,12 +853,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
           | { info?: { id?: string }; sessionID?: string }
           | undefined;
         const sessionID = props?.info?.id ?? props?.sessionID;
-        divoomManager.onSessionDeleted({
-          sessionId: sessionID,
-          isOrchestrator: sessionID
-            ? sessionAgentMap.get(sessionID) === 'orchestrator'
-            : false,
-        });
+        companionManager.onSessionDeleted(sessionID);
       }
 
       if (input.event.type === 'session.deleted') {
@@ -955,27 +893,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         output as { args?: unknown },
       );
 
-      if (input.tool.toLowerCase() === 'task') {
-        divoomManager.onTaskStart({
-          parentSessionId: input.sessionID,
-          callId: input.callID,
-          args: output.args,
-        });
-      }
+      // No-op for divoom
     },
 
-    // Direct interception of /auto-continue command — bypasses LLM
-    // round-trip
     'command.execute.before': async (input, output) => {
-      await todoContinuationHook.handleCommandExecuteBefore(
-        input as {
-          command: string;
-          sessionID: string;
-          arguments: string;
-        },
-        output as { parts: Array<{ type: string; text?: string }> },
-      );
-
       await interviewManager.handleCommandExecuteBefore(
         input as {
           command: string;
@@ -1003,7 +924,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         output as { parts: Array<{ type: string; text?: string }> },
       );
 
-      await sessionGoalHook.handleCommandExecuteBefore(
+      await deepworkCommandHook.handleCommandExecuteBefore(
         input as {
           command: string;
           sessionID: string;
@@ -1036,11 +957,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       if (agent) {
         sessionAgentMap.set(input.sessionID, agent);
+        // A chat message means this session is actively working. This also
+        // covers the race where session.status busy fires before the
+        // session's agent is known.
+        companionManager.onSessionStatus({
+          sessionId: input.sessionID,
+          agent,
+          status: 'busy',
+        });
       }
-      todoContinuationHook.handleChatMessage({
-        sessionID: input.sessionID,
-        agent,
-      });
     },
 
     // Inject orchestrator system prompt for serve-mode sessions. In serve
@@ -1082,8 +1007,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
             (output.system[0] ? `\n\n${output.system[0]}` : '');
         }
       }
-
-      sessionGoalHook.handleSystemTransform(input, output);
 
       // Collapse to single system message for provider compatibility.
       // Some providers (e.g. Qwen via VLLM/DashScope) reject multiple
@@ -1136,9 +1059,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         log,
       });
 
-      await todoContinuationHook.handleMessagesTransform({
-        messages: typedOutput.messages,
-      });
       await taskSessionManagerHook['experimental.chat.messages.transform'](
         input,
         typedOutput,
@@ -1204,16 +1124,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         ),
       );
 
-      await runPostToolHook('todo-continuation', () =>
-        todoContinuationHook.handleToolExecuteAfter(
-          input as {
-            tool: string;
-            sessionID?: string;
-          },
-          output as { output?: unknown },
-        ),
-      );
-
       await runPostToolHook('post-file-tool-nudge', () =>
         postFileToolNudgeHook['tool.execute.after'](
           input as {
@@ -1239,13 +1149,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
           output as { output: unknown },
         ),
       );
-
-      if (input.tool.toLowerCase() === 'task') {
-        divoomManager.onTaskEnd({
-          parentSessionId: input.sessionID,
-          callId: input.callID,
-        });
-      }
     },
   };
 };

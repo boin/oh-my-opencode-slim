@@ -108,23 +108,15 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `disabled_agents` | string[] | `["observer"]` | Agent names to disable globally. Set to `[]` to enable Observer; this is global, not per-preset |
 | `autoUpdate` | boolean | `true` | Automatically install plugin updates in the background; set to `false` for notification-only mode |
 | `multiplexer.type` | string | `"none"` | Multiplexer mode: `auto`, `tmux`, `zellij`, or `none` |
-| `multiplexer.layout` | string | `"main-vertical"` | Layout preset: `main-vertical`, `main-horizontal`, `tiled`, `even-horizontal`, `even-vertical` |
-| `multiplexer.main_pane_size` | number | `60` | Main pane size as percentage (20–80) |
-| `divoom.enabled` | boolean | `false` | Enable Divoom Bluetooth display status GIFs for plugin load and delegated agent calls |
-| `divoom.python` | string | Divoom MiniToo bundled Python | Python executable used to run Divoom MiniToo's `divoom_send.py` helper |
-| `divoom.script` | string | Divoom MiniToo `divoom_send.py` | Divoom sender script path |
-| `divoom.size` | integer | `128` | Output GIF size passed to `divoom_send.py` |
-| `divoom.fps` | integer | `8` | Output GIF FPS passed to `divoom_send.py` |
-| `divoom.speed` | integer | `125` | Playback speed passed to `divoom_send.py` |
-| `divoom.maxFrames` | integer | `24` | Maximum frames passed to `divoom_send.py` |
-| `divoom.posterizeBits` | integer | `3` | Posterization bits passed to `divoom_send.py` |
-| `divoom.gifs.<agent>` | string | bundled GIF | Optional per-agent GIF filename or absolute path override |
+| `multiplexer.layout` | string | `"main-vertical"` | Layout preset: `main-vertical`, `main-horizontal`, `tiled`, `even-horizontal`, `even-vertical`. Tmux applies full layouts; Zellij maps `main-vertical` to right and `main-horizontal` to down |
+| `multiplexer.main_pane_size` | number | `60` | Main pane size as percentage (20–80) for tmux main layouts; ignored by Zellij |
+| `multiplexer.zellij_pane_mode` | string | `"agent-tab"` | Zellij pane placement: `agent-tab` creates/reuses a dedicated `opencode-agents` tab; `current-tab` opens subagents as panes in the tab containing the parent OpenCode pane, falling back to the focused tab if the parent pane cannot be resolved |
 | `tmux.enabled` | boolean | `false` | Legacy alias for `multiplexer.type = "tmux"` |
 | `tmux.layout` | string | `"main-vertical"` | Legacy alias for `multiplexer.layout` |
 | `tmux.main_pane_size` | number | `60` | Legacy alias for `multiplexer.main_pane_size` |
-| `sessionManager.maxSessionsPerAgent` | integer | `2` | Maximum remembered resumable child sessions per specialist type in the current orchestrator session (1–10). See [Session Management](session-management.md) |
-| `sessionManager.readContextMinLines` | integer | `10` | Minimum number of lines read from a file before it appears in resumable-session context (0–1000) |
-| `sessionManager.readContextMaxFiles` | integer | `8` | Maximum number of recent read-context files shown per remembered child session (0–50) |
+| `backgroundJobs.maxSessionsPerAgent` | integer | `2` | Maximum completed/reconciled reusable child sessions per specialist type in the current orchestrator session (1–10). See [Session Management](session-management.md) |
+| `backgroundJobs.readContextMinLines` | integer | `10` | Minimum number of lines read from a file before it appears in reusable background-job context (0–1000) |
+| `backgroundJobs.readContextMaxFiles` | integer | `8` | Maximum number of recent read-context files shown per reusable child session (0–50) |
 | `disabled_mcps` | string[] | `[]` | MCP server IDs to disable globally |
 | `fallback.enabled` | boolean | `false` | Enable model failover on timeout/error |
 | `fallback.timeoutMs` | number | `15000` | Time before aborting and trying next model |
@@ -139,16 +131,14 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `council.timeout` | number | `180000` | Per-councillor timeout (ms) |
 | `council.councillor_execution_mode` | string | `"parallel"` | Run councillors in `parallel` or `serial`; use `serial` for single-model setups |
 | `council.councillor_retries` | number | `3` | Max retries per councillor on empty provider response (0–5) |
-| `subtask.timeoutMs` | integer | `300000` | Subtask worker timeout in ms. `0` disables the timeout. Max `86400000` (24h) |
-| `todoContinuation.maxContinuations` | integer | `5` | Max consecutive auto-continuations before stopping (1–50) |
-| `todoContinuation.cooldownMs` | integer | `3000` | Delay in ms before auto-continuing — gives user time to abort (0–30000) |
-| `todoContinuation.autoEnable` | boolean | `false` | Automatically enable auto-continue when session has enough todos |
-| `todoContinuation.autoEnableThreshold` | integer | `4` | Number of todos that triggers auto-enable (only used when `autoEnable` is true, 1–50) |
 | `interview.maxQuestions` | integer | `2` | Max questions per interview round (1–10) |
 | `interview.outputFolder` | string | `"interview"` | Directory where interview markdown files are written (relative to project root) |
 | `interview.autoOpenBrowser` | boolean | `true` | Automatically open the interview UI in your default browser during interactive runs; suppressed in tests and CI |
 | `interview.port` | integer | `0` | Interview server port (0–65535). `0` = OS-assigned random port (per-session mode). Any value > 0 enables [dashboard mode](interview.md#dashboard-mode) |
 | `interview.dashboard` | boolean | `false` | Enable [dashboard mode](interview.md#dashboard-mode) on the default port (43211). Setting `port` > 0 also enables dashboard mode. If both are set, `port` takes precedence |
+| `companion.enabled` | boolean | `false` | Enable/disable the floating window Rust companion |
+| `companion.position` | string | `"bottom-right"` | The initial corner position of the companion window: `bottom-right`, `bottom-left`, `top-right`, or `top-left` |
+| `companion.size` | string | `"medium"` | The default size preset of the companion window: `small` (80px), `medium` (120px), or `large` (160px) |
 
 ### Council configuration note
 
@@ -156,7 +146,8 @@ Presets can also be switched at runtime without restarting using the `/preset` c
   `presets.<name>.council.model`.
 - The **councillor models** are configured separately under
   `council.presets.<name>.<councillor>.model`.
-- Deprecated `council.master*` fields should not be used in new configs.
+- Deprecated `council.master*` fields are legacy compatibility aliases only;
+  do not use them in new configs.
 
 ### Manual Update Mode
 
@@ -181,76 +172,11 @@ major is available, the plugin shows a migration command instead.
 > `"oh-my-opencode-slim@1.0.1"`) are the true version lock. Those stay pinned
 > regardless of `autoUpdate`.
 
-### Divoom Display Integration
+### Background Job Management
 
-Divoom integration is disabled by default. Install and start the Divoom MiniToo
-macOS daemon from
-[`divoom-minitoo-osx`](https://github.com/alvinunreal/divoom-minitoo-osx)
-first, then enable this plugin integration. See the full
-**[Divoom guide](divoom.md)** for setup, daemon startup, and troubleshooting.
-
-When enabled, the plugin sends bundled GIFs to the Divoom MiniToo app's bundled
-CLI:
-
-- plugin load / waiting for user input: `intro.gif`
-- orchestrator busy: `orchestrator.gif`
-- first active delegated agent: that agent's GIF
-- parallel delegated agents: the first agent keeps the display
-- all delegated agents complete while orchestrator keeps working: `orchestrator.gif`
-- orchestrator idle again: `intro.gif`
-
-```jsonc
-{
-  "divoom": {
-    "enabled": true
-  }
-}
-```
-
-For a one-off run without editing config:
-
-```bash
-OH_MY_OPENCODE_SLIM_DIVOOM=1 opencode
-```
-
-If `divoom.enabled` is explicitly set in config, the config value wins over the
-environment variable.
-
-The defaults target the macOS Divoom MiniToo app bundle:
-
-```jsonc
-{
-  "divoom": {
-    "enabled": true,
-    "python": "/Applications/Divoom MiniToo.app/Contents/Resources/.venv/bin/python",
-    "script": "/Applications/Divoom MiniToo.app/Contents/Resources/tools/divoom_send.py",
-    "size": 128,
-    "fps": 8,
-    "speed": 125,
-    "maxFrames": 24,
-    "posterizeBits": 3
-  }
-}
-```
-
-To override a GIF, use either a bundled filename or an absolute path:
-
-```jsonc
-{
-  "divoom": {
-    "enabled": true,
-    "gifs": {
-      "oracle": "/Users/me/Pictures/oracle.gif"
-    }
-  }
-}
-```
-
-### Session Management
-
-Session management is enabled by default and does not need to be present in the
-starter config. Add `sessionManager` only if you want to tune how many resumable
-child-agent sessions are remembered or how much read context is shown. See
+Background job management is enabled by default and does not need to be present
+in the starter config. Add `backgroundJobs` only if you want to tune how many
+completed/reconciled child-agent sessions are reusable or how much read context is shown. See
 [Session Management](session-management.md) for the concept, defaults, and
 examples.
 
@@ -305,3 +231,19 @@ Notes:
 - Custom agent names must be safe identifiers such as `janitor` or `security-reviewer`
 - Custom agents without a `model` are skipped with a warning
 - Disabled custom agents are not registered or injected into the orchestrator prompt
+
+### Desktop Companion App
+
+The desktop companion app provides a visual status overlay showing running and active agents. For quick installation instructions, binary paths, config defaults, and release information, see the full **[Desktop Companion Guide](companion.md)**.
+
+Once installed, configure it in your `oh-my-opencode-slim` settings:
+
+```jsonc
+{
+  "companion": {
+    "enabled": true,
+    "position": "bottom-right", // optional: bottom-right, bottom-left, top-right, top-left
+    "size": "medium"            // optional: small, medium, large
+  }
+}
+```

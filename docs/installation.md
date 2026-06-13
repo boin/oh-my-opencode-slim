@@ -325,7 +325,7 @@ The preset wires `memex` to `orchestrator` (read) and `oracle` (read + write). T
 
 3. Tell the user:
    - `@oracle` is the **sole writer**. Pitfall lessons + good-pattern notes only.
-   - `@orchestrator` is a **reader**. It calls `recall_memories` before launching each subtask.
+   - `@orchestrator` is a **reader**. It calls `recall_memories` before launching each background specialist task.
    - Never let other agents (`fixer`, `librarian`, `explorer`, `designer`) touch memex — they are not in the preset by design.
 
 4. Sanity check after first run:

@@ -152,9 +152,9 @@ Configuration: in `oh-my-opencode-slim.json` user config:
 
 Behavior, inlined into orchestrator append prompt:
 
-- **Before each subtask launch** (orchestrator as reader): orchestrator calls
-  `recall_memories` with the subtask topic + project tag. Top 3-5 results
-  injected into subtask prompt under `## Lessons from past work`.
+- **Before each background specialist task launch** (orchestrator as reader): orchestrator calls
+  `recall_memories` with the task topic + project tag. Top 3-5 results
+  injected into the task prompt under `## Lessons from past work`.
 - **At entry review** (oracle as reader): oracle calls `recall_memories` with
   the triad's title + project tag. No save at this gate.
 - **At output review** (oracle as writer): oracle inspects diff vs trace. If

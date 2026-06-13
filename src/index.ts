@@ -28,6 +28,7 @@ import {
   createPhaseReminderHook,
   createPostFileToolNudgeHook,
   createTaskSessionManagerHook,
+  createTodoHygieneHook,
   createTraceFreshnessHook,
   ForegroundFallbackManager,
 } from './hooks';
@@ -142,6 +143,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let foregroundFallback: ForegroundFallbackManager;
   let deepworkCommandHook: ReturnType<typeof createDeepworkCommandHook>;
   let taskSessionManagerHook: ReturnType<typeof createTaskSessionManagerHook>;
+  let todoHygieneHook: ReturnType<typeof createTodoHygieneHook>;
   let backgroundJobBoard: BackgroundJobBoard;
   let interviewManager: ReturnType<typeof createInterviewManager>;
   let presetManager: ReturnType<typeof createPresetManager>;
@@ -328,6 +330,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       readContextMaxFiles: config.backgroundJobs?.readContextMaxFiles ?? 8,
       backgroundJobBoard,
       shouldManageSession: (sessionID) =>
+        sessionAgentMap.get(sessionID) === 'orchestrator',
+    });
+    todoHygieneHook = createTodoHygieneHook(ctx, {
+      shouldInject: (sessionID) =>
         sessionAgentMap.get(sessionID) === 'orchestrator',
     });
     interviewManager = createInterviewManager(ctx, config);
@@ -821,6 +827,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
       );
 
+      todoHygieneHook.handleEvent(
+        input as {
+          event: {
+            type: string;
+            properties?: { info?: { id?: string }; sessionID?: string };
+          };
+        },
+      );
+
       if (
         event.type === 'permission.asked' ||
         event.type === 'question.asked'
@@ -892,8 +907,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
         output as { args?: unknown },
       );
-
-      // No-op for divoom
     },
 
     'command.execute.before': async (input, output) => {
@@ -1063,6 +1076,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         input,
         typedOutput,
       );
+      todoHygieneHook.handleMessagesTransform(typedOutput);
       await phaseReminderHook['experimental.chat.messages.transform'](
         input,
         typedOutput,
@@ -1147,6 +1161,12 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
             callID?: string;
           },
           output as { output: unknown },
+        ),
+      );
+
+      await runPostToolHook('todo-hygiene', () =>
+        todoHygieneHook.handleToolExecuteAfter(
+          input as { tool: string; sessionID?: string },
         ),
       );
     },

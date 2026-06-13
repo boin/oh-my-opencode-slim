@@ -67,25 +67,25 @@ Role enforcement:
 Replace the natural 4-point review schedule with 2 consolidated gates to control Opus cost:
 
 - **Entry review** — fires after trace regeneration or on cold-session handoff. Confirms the triad and trace are mutually consistent before execution begins.
-- **Output review** — fires after subtask batch completion, before commit. Reviews the accumulated diff against trace anchors.
+- **Output review** — fires after background specialist task batch completion, before commit. Reviews the accumulated diff against trace anchors.
 
 If output review finds divergence: GPT fixer redoes the work with brief guidance from Opus. Opus does not edit code directly.
 
 ## sdd-workflow/REQ-008: Persistent lessons via memex
 
 - `oracle` is the sole memex **writer**. Writes occur only at the two review gates.
-- `orchestrator` is the memex **reader**: before launching each subtask, it calls `recall_memories` with the subtask topic + project tag and injects the top results into the subtask prompt.
+- `orchestrator` is the memex **reader**: before launching each background specialist task, it calls `recall_memories` with the task topic + project tag and injects the top results into the task prompt.
 - Two write categories: `pitfall` (divergence found at review) and `pattern` (good practice discovered).
 - Project scoping: oracle infers project identity from git remote / repo root / context. Memories carry project tag when inferable, global tag when cross-project.
 
 ## sdd-workflow/REQ-009: TDD execution discipline
 
 - Default: strict TDD (red → green → refactor), enforced by **inlined distilled rules** in the orchestrator prompt (see REQ-010 for source/rationale).
-- The discipline is held by `orchestrator` (Opus), not by `fixer`. Opus decomposes a TDD cycle into three narrow subtasks (write failing test → implement to green → refactor).
+- The discipline is held by `orchestrator` (Opus), not by `fixer`. Opus decomposes a TDD cycle into three narrow background specialist tasks (write failing test → implement to green → refactor).
 - Exemption categories (orchestrator decides automatically):
   - UI / visual / exploratory prototype
   - Test infrastructure absent (no test runner, no test directory)
-- If test infrastructure is missing, run a one-shot "build infra" subtask first, record the setup in `design.md` under a `Test infrastructure` section, then return to TDD.
+- If test infrastructure is missing, run a one-shot "build infra" background task first, record the setup in `design.md` under a `Test infrastructure` section, then return to TDD.
 
 ## sdd-workflow/REQ-010: Inlined discipline (distilled from superpowers)
 
@@ -93,14 +93,14 @@ This fork does NOT depend on the `superpowers` plugin at runtime. Rationale: the
 
 Instead, the high-value subset of `superpowers` is distilled into compact rules embedded directly in the orchestrator prompt (`customAppendPrompt`):
 
-- **TDD**: red→green→refactor cycle, subtask decomposition, exemption gates (covers REQ-009)
+- **TDD**: red→green→refactor cycle, background specialist task decomposition, exemption gates (covers REQ-009)
 - **Systematic debugging**: hypothesis-first, narrow-the-scope, no fix-by-guessing
 - **Verification before completion**: explicit checks before declaring done; no self-congratulatory "completed" without evidence
 
 Skills explicitly NOT distilled (handled by slim or our own design):
 
 - `brainstorming` — replaced by our grill workflow (REQ-003)
-- `subagent-driven-development` — covered by slim's orchestrator + subtask
+- `subagent-driven-development` — covered by slim's orchestrator plus V2 background `task` routing
 - `using-git-worktrees` — operational, handled by REQ-011 routing
 - `writing-plans` / `executing-plans` — covered by SDD triad (REQ-002)
 - `requesting-code-review` / `receiving-code-review` — covered by review gates (REQ-007)

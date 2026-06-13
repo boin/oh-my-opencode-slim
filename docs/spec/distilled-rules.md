@@ -15,13 +15,13 @@ runtime-load the plugin.
 ## TDD discipline
 
 For every code-producing task that is not exempted, run TDD as three
-sequential subtasks. Do not collapse them.
+sequential background specialist tasks. Do not collapse them.
 
 1. **Red** — `@fixer` writes the smallest failing test that pins the next
-   behavior. Run the test. The subtask returns only when the test fails for
+   behavior. Run the test. The task returns only when the test fails for
    the right reason (assertion failure, not import or syntax error).
 2. **Green** — `@fixer` writes the minimum implementation to pass that test.
-   No extra features, no unrelated cleanup. Run the test. The subtask returns
+   No extra features, no unrelated cleanup. Run the test. The task returns
    only when the targeted test passes and no previously-green test regresses.
 3. **Refactor** — `@fixer` improves names, removes duplication, tightens
    types. Tests stay green throughout. Skip this step if nothing is worth
@@ -34,10 +34,10 @@ Hard rules:
   is coverage theater, not TDD.
 - One behavior per cycle. If a task implies N behaviors, run N cycles.
 
-Exemptions (orchestrator decides, no subtask needed to confirm):
+Exemptions (orchestrator decides, no specialist task needed to confirm):
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes explicitly tagged `exploratory`.
-- Test infrastructure absent — run a one-shot "build infra" subtask first,
+- Test infrastructure absent — run a one-shot "build infra" background task first,
   record outcome in `design.md` § Test infrastructure, then resume TDD.
 
 ---
@@ -78,15 +78,16 @@ Required evidence depends on task type:
   that existed before the refactor.
 - **Spec / docs edit** — referenced files exist; cross-links resolve; trace
   remains consistent if `trace.md` is present.
-- **Subtask completion** — the subtask's stated exit condition is observably
-  met. The orchestrator inspects, does not just accept the subtask summary.
+- **Specialist task completion** — the task's stated exit condition is
+  observably met. The orchestrator inspects, does not just accept the task
+  summary.
 
 Hard rules:
 - Never declare done based on "I made the change you asked for". Done means
   the change has been verified to work.
-- Never accept a subtask's `<subtask_summary>` at face value if its
+- Never accept a specialist task summary at face value if its
   `Validation` section is empty or hand-waves. Re-run the validation yourself
-  or send the subtask back.
+  or send the specialist task back.
 - If verification fails, fix or escalate. Do not paper over a failure with a
   retry-loop or by lowering the bar.
 
@@ -146,7 +147,8 @@ Trivial direct edits remain allowed and do not require a task package.
 - These rules override style preferences but yield to explicit user
   instructions, which always take precedence.
 - These rules apply to Opus orchestrator behavior. GPT-class specialists
-  inherit them indirectly through subtask prompts the orchestrator writes.
+  inherit them indirectly through background task prompts the orchestrator
+  writes.
 - When these rules conflict with each other in a specific situation, prefer
   Verification > Module completion > Debugging > TDD discipline — i.e., do not
   skip verification or task completion evidence to keep TDD pure, and do not

@@ -6,6 +6,23 @@ Bundled skills are installed by the `oh-my-opencode-slim` installer.
 
 ---
 
+## Skill taxonomy
+
+Bundled skills are grouped by the role they play in the V2 architecture, not by
+where they originally came from.
+
+| Class | Skills | Purpose |
+|-------|--------|---------|
+| V2 core workflow | `deepwork`, `oh-my-opencode-slim` | Support scheduler-first V2 execution and plugin self-maintenance. |
+| Workflow intelligence | `grill`, `brainstorming`, `using-git-worktrees`, `finishing-a-development-branch` | Encode repeatable engineering workflows that the Orchestrator can auto-detect and lazily load. These are not legacy merely because some were distilled from Superpowers. |
+| Knowledge / tooling support | `simplify`, `codemap`, `clonedeps` | Add reusable capabilities for review, repository understanding, and dependency source inspection. |
+
+See [V2-native local customization plan](v2-native-customization-plan.md) for
+the merge policy that keeps workflow intelligence skills while avoiding old V1
+runtime residue.
+
+---
+
 ## Available Skills
 
 ### Bundled in repo
@@ -22,7 +39,7 @@ Bundled skills are installed by the `oh-my-opencode-slim` installer.
 | [`deepwork`](#deepwork) | Heavy/complex coding sessions workflow | `orchestrator` |
 | [`oh-my-opencode-slim`](#oh-my-opencode-slim) | Plugin configuration and self-improvement guidance | `orchestrator` |
 
-> Vendored: `brainstorming`, `using-git-worktrees`, and `finishing-a-development-branch` were cherry-picked from [obra/superpowers](https://github.com/obra/superpowers) (MIT) and adapted to fit oh-my-opencode-slim's orchestrator + SDD workflow. The original `superpowers` plugin is intentionally not loaded — its TDD/debugging/verification/code-review skills overlap with the orchestrator's inline `## Distilled` discipline sections and with `@oracle` / `@fixer` routing.
+> Vendored: `brainstorming`, `using-git-worktrees`, and `finishing-a-development-branch` were cherry-picked from [obra/superpowers](https://github.com/obra/superpowers) (MIT) and adapted to fit oh-my-opencode-slim's orchestrator + SDD workflow. The original `superpowers` plugin is intentionally not loaded — its TDD/debugging/verification/code-review skills overlap with the orchestrator's inline `## Distilled` discipline sections and with `@oracle` / `@fixer` routing. The vendored workflow skills themselves remain first-class V2 routing assets.
 
 ---
 

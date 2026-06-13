@@ -40,7 +40,7 @@ For any full SDD task:
 
 4. **Route + execute** — see Routing block. TDD per Distilled rules.
 
-5. **Output review** — after the subtask batch, delegate to @oracle: review the accumulated diff against trace anchors. If divergence, send @fixer back with brief guidance. On approval, @oracle MUST also:
+5. **Output review** — after the background specialist task batch, delegate to @oracle: review the accumulated diff against trace anchors. If divergence, send @fixer back with brief guidance. On approval, @oracle MUST also:
    - call \`spec_merge slug=<slug>\` (skip if bootstrap path with no job). The tool distributes deltas back to each affected domain trunk and regenerates affected traces — do not call \`trace_regenerate\` separately.
    - call \`spec_archive slug=<slug>\` immediately after. Whole job dir is moved to archive.
    - persist lessons via \`save_memory\` (see Memex contract).
@@ -51,8 +51,8 @@ Trace freshness paths (do not double-call):
 - Manual path: \`trace_regenerate\` (no args = all domains; \`domain=<d>\` for one; \`job=<slug>\` for one job).
 
 Module Completion Discipline:
-- For non-trivial SDD implementation, orchestrator must provide each fixer
-  subtask with a task package before execution.
+- For non-trivial SDD implementation, orchestrator must provide each @fixer
+  background task with a task package before execution.
   Trivial direct edits remain allowed and do not require a task package.
 - Task package required fields: REQ/DES/TASK anchors, Boundaries,
   Acceptance Checks, Validation, Completion Evidence, Anti-Shell Rules.
@@ -139,13 +139,13 @@ domain plugin is loaded.`;
 
 const TDD_DISCIPLINE = `## Distilled TDD discipline
 
-Run TDD as three sequential subtasks. Do not collapse them.
+Run TDD as three sequential background specialist tasks. Do not collapse them.
 
 1. **Red** — @fixer writes the smallest failing test that pins the next
-   behavior. Run it. Subtask returns only when the test fails for the right
+   behavior. Run it. The task returns only when the test fails for the right
    reason (assertion failure, not import/syntax error).
 2. **Green** — @fixer writes the minimum implementation to pass. No extra
-   features, no unrelated cleanup. Subtask returns only when the targeted
+   features, no unrelated cleanup. The task returns only when the targeted
    test passes and no previously-green test regresses.
 3. **Refactor** — @fixer improves names, removes duplication, tightens
    types. Tests stay green. Skip if nothing worth changing.
@@ -157,12 +157,12 @@ Hard rules:
   theater is not TDD.
 - One behavior per cycle. N behaviors → N cycles.
 
-Exemptions (orchestrator decides, no subtask needed to confirm):
+Exemptions (orchestrator decides, no specialist task needed to confirm):
 - Minor or known-small work may run red → green → refactor inline instead of
   delegating every step to @fixer.
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes tagged \`exploratory\`.
-- Test infrastructure absent — run a one-shot "build infra" subtask first,
+- Test infrastructure absent — run a one-shot "build infra" background task first,
   record outcome in \`design.md\` § Test infrastructure, then resume TDD.`;
 
 const DEBUGGING = `## Distilled systematic debugging
@@ -194,12 +194,12 @@ Required evidence by task type:
 - Refactor → full suite green; pre-existing behavior tests unchanged.
 - Spec / docs → referenced files exist; cross-links resolve; trace
   consistent if \`trace.md\` present.
-- Subtask completion → the subtask's stated exit condition observably met.
+- Specialist task completion → the task's stated exit condition observably met.
   Inspect, do not just accept the summary.
 
 Hard rules:
 - Never declare done based on "I made the change". Done = verified to work.
-- Never accept a subtask's \`<subtask_summary>\` if its \`Validation\`
+- Never accept a specialist task summary if its \`Validation\`
   section is empty or hand-waves. Re-run validation yourself or send back.
 - Verification fails → fix or escalate. Do not paper over with retry-loops
   or lowered bars.`;
@@ -211,9 +211,9 @@ Read/write separation:
   diff against trace. Two categories:
   - \`pitfall\` — divergence found at review
   - \`pattern\` — noteworthy good practice
-- **You (orchestrator) are a reader.** Before launching each subtask, call
-  \`recall_memories\` with the subtask topic + project tag, inject top 3-5
-  results into the subtask prompt under \`## Lessons from past work\`.
+- **You (orchestrator) are a reader.** Before launching each background
+  specialist task, call \`recall_memories\` with the task topic + project tag,
+  inject top 3-5 results into the task prompt under \`## Lessons from past work\`.
 
 Project tag derivation:
 - Prefer the \`org/repo\` parsed from \`git remote get-url origin\`.

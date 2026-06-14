@@ -1341,6 +1341,54 @@ describe('task-session-manager hook', () => {
     expect(resume.args.task_id).toBe('ses_existing');
   });
 
+  test('known raw session id for wrong agent is dropped', async () => {
+    const board = new BackgroundJobBoard();
+    const { hook } = createHook({ backgroundJobBoard: board });
+    board.registerLaunch({
+      taskID: 'ses_existing',
+      parentSessionID: 'parent-1',
+      agent: 'explorer',
+      description: 'map hooks',
+    });
+    board.updateStatus({ taskID: 'ses_existing', state: 'completed' });
+    board.markReconciled('ses_existing');
+
+    const resume = {
+      args: { subagent_type: 'oracle', task_id: 'ses_existing' },
+    };
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'resume-1' },
+      resume,
+    );
+
+    expect(resume.args.task_id).toBeUndefined();
+  });
+
+  test('known raw session id for same agent is preserved', async () => {
+    const board = new BackgroundJobBoard();
+    const { hook } = createHook({ backgroundJobBoard: board });
+    board.registerLaunch({
+      taskID: 'ses_existing',
+      parentSessionID: 'parent-1',
+      agent: 'explorer',
+      description: 'map hooks',
+    });
+    board.updateStatus({ taskID: 'ses_existing', state: 'completed' });
+    board.markReconciled('ses_existing');
+
+    const resume = {
+      args: { subagent_type: 'explorer', task_id: 'ses_existing' },
+    };
+
+    await hook['tool.execute.before'](
+      { tool: 'task', sessionID: 'parent-1', callID: 'resume-1' },
+      resume,
+    );
+
+    expect(resume.args.task_id).toBe('ses_existing');
+  });
+
   test('still drops unknown reusable aliases', async () => {
     const { hook } = createHook();
     const resume = { args: { subagent_type: 'fixer', task_id: 'fix-99' } };

@@ -547,6 +547,12 @@ export function createTaskSessionManagerHook(
       );
 
       if (!remembered) {
+        const known = backgroundJobBoard.resolve(input.sessionID, requested);
+        if (known) {
+          delete args.task_id;
+          return;
+        }
+
         if (RAW_SESSION_ID_PATTERN.test(requested)) {
           pendingCall.resumedTaskId = requested;
           rememberPendingCall(pendingCall);

@@ -85,7 +85,11 @@ export function createTraceFreshnessHook(options: TraceFreshnessOptions = {}) {
       let stale: StaleEntry[];
       try {
         stale = findStaleTraces(specDir);
-      } catch {
+      } catch (err) {
+        lastUser.parts.push({
+          type: 'text',
+          text: `${NOTICE_MARKER} failed ${(err as Error).message}</internal_reminder>`,
+        });
         return;
       }
       if (stale.length === 0) return;

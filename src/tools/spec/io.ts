@@ -14,6 +14,7 @@ import {
   extractSections,
   parseQualifiedId,
 } from '../trace/parser';
+import { assertDomainTriadComplete, domainDir } from './domain-triad';
 
 // Invariants:
 //   1. Domain spec is the source of truth. Job specs are change containers
@@ -62,10 +63,6 @@ function jobDir(specDir: string, slug: string): string {
 
 function domainsBase(specDir: string): string {
   return join(specDir, 'domains');
-}
-
-function domainDir(specDir: string, domain: string): string {
-  return join(domainsBase(specDir), domain);
 }
 
 function archiveBase(specDir: string): string {
@@ -145,6 +142,7 @@ function assertDomainExists(specDir: string, domain: string): void {
       `domain '${domain}' not found at ${domainDir(specDir, domain)}; create the domain triad first`,
     );
   }
+  assertDomainTriadComplete(specDir, domain);
 }
 
 function initializeDomainTriad(specDir: string, domain: string): void {
@@ -219,6 +217,9 @@ export function proposeJob(
   const domains = options.domains ?? [];
   for (const d of domains) assertValidDomainName(d);
   const initializedDomains = domains.filter((d) => !domainExists(specDir, d));
+  for (const d of domains) {
+    if (domainExists(specDir, d)) assertDomainTriadComplete(specDir, d);
+  }
   for (const d of initializedDomains) initializeDomainTriad(specDir, d);
 
   const allocations: Record<string, DomainAllocation> = {};

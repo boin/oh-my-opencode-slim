@@ -122,6 +122,28 @@ describe('trace-freshness hook', () => {
     expect(notice).toContain('job:feat-x');
   });
 
+  test('preserves incomplete domain diagnostic in failure notice', async () => {
+    const domainPath = join(spec, 'domains', 'incomplete');
+    mkdirSync(domainPath, { recursive: true });
+    writeFileSync(join(domainPath, 'requirements.md'), '# incomplete reqs\n');
+    writeFileSync(join(domainPath, 'trace.md'), '# Trace\n');
+
+    const hook = createTraceFreshnessHook({ specDir: spec });
+    const messages: Message[] = [userMsg('continue')];
+    await hook['experimental.chat.messages.transform'](
+      {} as Record<string, never>,
+      { messages },
+    );
+
+    expect(messages[0].parts).toHaveLength(2);
+    const notice = messages[0].parts[1].text ?? '';
+    expect(notice).toContain('trace_regenerate:');
+    expect(notice).toContain('failed');
+    expect(notice).toContain('incomplete');
+    expect(notice).toContain(domainPath);
+    expect(notice).toContain('design.md');
+  });
+
   test('no-op when everything fresh', async () => {
     writeDomain(
       spec,

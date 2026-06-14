@@ -6,6 +6,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { assertDomainTriadComplete, domainDir } from '../spec/domain-triad';
 import {
   extractAnchors,
   extractIds,
@@ -43,23 +44,17 @@ function writeTrace(path: string, table: string): RegenerateResult {
 
 // --- domain-level ---
 
-function domainDir(specDir: string, domain: string): string {
-  return join(specDir, 'domains', domain);
-}
-
 export function regenerateDomainTrace(
   specDir: string,
   domain: string,
 ): RegenerateResult {
   const d = domainDir(specDir, domain);
+  if (!existsSync(d)) {
+    throw new Error(`domain '${domain}' not found at ${d}`);
+  }
+  assertDomainTriadComplete(specDir, domain);
   const reqPath = join(d, 'requirements.md');
   const desPath = join(d, 'design.md');
-  if (!existsSync(reqPath)) {
-    throw new Error(`requirements.md not found in ${d}`);
-  }
-  if (!existsSync(desPath)) {
-    throw new Error(`design.md not found in ${d}`);
-  }
   const reqIds = extractIds(readFileSync(reqPath, 'utf8'), 'REQ');
   const anchors = extractAnchors(readFileSync(desPath, 'utf8'), {
     defaultDomain: domain,
@@ -171,6 +166,7 @@ export function findStaleTraces(specDir: string): StaleEntry[] {
   const out: StaleEntry[] = [];
   for (const domain of listDomains(specDir)) {
     const d = domainDir(specDir, domain);
+    assertDomainTriadComplete(specDir, domain);
     if (
       isStaleAgainst(join(d, 'trace.md'), [
         join(d, 'requirements.md'),

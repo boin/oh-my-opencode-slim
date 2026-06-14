@@ -149,6 +149,45 @@ describe('spec/io (job-scoped)', () => {
       expect(proposal).toMatch(/created|initialized|new/i);
     });
 
+    test('refuses an existing incomplete declared domain without repairing it', () => {
+      const domainDir = join(specDir, 'domains', 'partial-domain');
+      mkdirSync(domainDir, { recursive: true });
+      writeFileSync(
+        join(domainDir, 'requirements.md'),
+        '# partial requirements\n',
+      );
+
+      expect(() =>
+        proposeJob(specDir, 'partial-domain-job', 'x', {
+          domains: ['partial-domain'],
+        }),
+      ).toThrow(/incomplete|missing.*design\.md/i);
+
+      expect(existsSync(join(domainDir, 'design.md'))).toBe(false);
+      expect(existsSync(join(specDir, 'jobs', 'partial-domain-job'))).toBe(
+        false,
+      );
+    });
+
+    test('validates existing domains before bootstrapping missing domains', () => {
+      const partialDir = join(specDir, 'domains', 'partial-domain');
+      mkdirSync(partialDir, { recursive: true });
+      writeFileSync(
+        join(partialDir, 'requirements.md'),
+        '# partial requirements\n',
+      );
+
+      expect(() =>
+        proposeJob(specDir, 'mixed-domain-job', 'x', {
+          domains: ['new-domain', 'partial-domain'],
+        }),
+      ).toThrow(/incomplete|missing.*design\.md/i);
+
+      expect(existsSync(join(specDir, 'domains', 'new-domain'))).toBe(false);
+      expect(existsSync(join(partialDir, 'design.md'))).toBe(false);
+      expect(existsSync(join(specDir, 'jobs', 'mixed-domain-job'))).toBe(false);
+    });
+
     test('refuses invalid declared domain names before writing files', () => {
       expect(() =>
         proposeJob(specDir, 'bad-domain', 'x', { domains: ['../oops'] }),
@@ -211,6 +250,47 @@ describe('spec/io (job-scoped)', () => {
       );
       writeFileSync(join(j.jobDir, 'delta-design.md'), '');
       expect(() => mergeJob(specDir, 'dup')).toThrow(/already exists/);
+    });
+
+    test('refuses an incomplete referenced domain before writing any sections', () => {
+      seedDomain('auth', ['auth/REQ-1'], []);
+      const partialDir = join(specDir, 'domains', 'partial-domain');
+      mkdirSync(partialDir, { recursive: true });
+      writeFileSync(
+        join(partialDir, 'requirements.md'),
+        '# partial-domain requirements\n',
+      );
+      const j = proposeJob(specDir, 'merge-partial', 'x', {
+        domains: ['auth'],
+      });
+      writeFileSync(
+        join(j.jobDir, 'delta-requirements.md'),
+        '## auth/REQ-2: new\n\nbody\n\n## partial-domain/REQ-1: new\n\nbody\n',
+      );
+      writeFileSync(join(j.jobDir, 'delta-design.md'), '');
+
+      let error: unknown;
+      try {
+        mergeJob(specDir, 'merge-partial');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(Error);
+      const message = error instanceof Error ? error.message : '';
+      expect(message).toContain('incomplete');
+      expect(message).toContain(partialDir);
+      expect(message).toContain('design.md');
+
+      expect(
+        readFileSync(
+          join(specDir, 'domains', 'auth', 'requirements.md'),
+          'utf8',
+        ),
+      ).not.toContain('## auth/REQ-2: new');
+      expect(existsSync(join(partialDir, 'design.md'))).toBe(false);
+      expect(
+        readFileSync(join(partialDir, 'requirements.md'), 'utf8'),
+      ).not.toContain('## partial-domain/REQ-1: new');
     });
 
     test('refuses when job dir missing', () => {

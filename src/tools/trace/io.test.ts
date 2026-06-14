@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -63,6 +64,22 @@ describe('trace/io (domain + job)', () => {
 
     test('throws when domain dir missing', () => {
       expect(() => regenerateDomainTrace(dir, 'nope')).toThrow(/not found/);
+    });
+
+    test('reports incomplete domain path and all missing source filenames without creating them', () => {
+      const domainPath = join(dir, 'domains', 'incomplete');
+      mkdirSync(domainPath, { recursive: true });
+
+      expect(() => regenerateDomainTrace(dir, 'incomplete')).toThrow(
+        new RegExp(
+          `${domainPath}.*requirements\\.md.*design\\.md|${domainPath}.*design\\.md.*requirements\\.md`,
+          'i',
+        ),
+      );
+
+      expect(existsSync(join(domainPath, 'requirements.md'))).toBe(false);
+      expect(existsSync(join(domainPath, 'design.md'))).toBe(false);
+      expect(existsSync(join(domainPath, 'trace.md'))).toBe(false);
     });
   });
 
@@ -138,6 +155,18 @@ describe('trace/io (domain + job)', () => {
       );
       const stale = findStaleTraces(dir);
       expect(stale).toEqual([{ kind: 'domain', name: 'auth' }]);
+    });
+
+    test('fails fast for incomplete domain even when trace is newer', async () => {
+      const domainPath = join(dir, 'domains', 'incomplete');
+      mkdirSync(domainPath, { recursive: true });
+      writeFileSync(join(domainPath, 'design.md'), '# incomplete design\n');
+      await Bun.sleep(10);
+      writeFileSync(join(domainPath, 'trace.md'), '# Trace\n');
+
+      expect(() => findStaleTraces(dir)).toThrow(
+        new RegExp(`${domainPath}.*requirements\\.md`, 'i'),
+      );
     });
 
     test('reports stale job when delta newer than trace', async () => {

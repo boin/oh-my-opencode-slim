@@ -9,6 +9,7 @@ import {
   rmSync,
 } from 'node:fs';
 import * as path from 'node:path';
+import { CUSTOM_SKILLS, type CustomSkill } from '../../cli/custom-skills';
 import { getConfigDir } from '../../cli/paths';
 import { log } from '../../utils/logger';
 
@@ -17,6 +18,8 @@ export interface SkillSyncResult {
   skippedExisting: string[];
   failed: string[];
 }
+
+type SkillRegistryEntry = Pick<CustomSkill, 'name' | 'sourcePath'>;
 
 /**
  * Recursively copies src to dest. Does not follow/copy symbolic links.
@@ -46,27 +49,11 @@ function copyDirRecursive(src: string, dest: string): void {
  */
 export function syncBundledSkillsFromPackage(
   packageRoot: string,
+  skills: readonly SkillRegistryEntry[] = CUSTOM_SKILLS,
 ): SkillSyncResult {
   const installed: string[] = [];
   const skippedExisting: string[] = [];
   const failed: string[] = [];
-
-  const sourceSkillsDir = path.join(packageRoot, 'src', 'skills');
-
-  try {
-    const stat = lstatSync(sourceSkillsDir);
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
-      log(
-        `[skill-sync] Source skills directory is not a valid directory: ${sourceSkillsDir}`,
-      );
-      return { installed, skippedExisting, failed };
-    }
-  } catch {
-    log(
-      `[skill-sync] Source skills directory does not exist or is unreadable: ${sourceSkillsDir}`,
-    );
-    return { installed, skippedExisting, failed };
-  }
 
   const destSkillsDir = path.join(getConfigDir(), 'skills');
 
@@ -81,40 +68,38 @@ export function syncBundledSkillsFromPackage(
     );
   }
 
-  let entries: string[] = [];
-  try {
-    entries = readdirSync(sourceSkillsDir);
-  } catch (err) {
-    log(
-      `[skill-sync] Failed to read source skills directory: ${sourceSkillsDir}`,
-      err,
-    );
-    return { installed, skippedExisting, failed };
-  }
+  for (const skill of skills) {
+    const { name, sourcePath } = skill;
+    const entryPath = path.join(packageRoot, sourcePath);
 
-  for (const entry of entries) {
-    const entryPath = path.join(sourceSkillsDir, entry);
+    if (name.startsWith('.')) {
+      continue;
+    }
+
+    let entryStat: ReturnType<typeof lstatSync>;
     try {
-      if (entry.startsWith('.')) {
+      entryStat = lstatSync(entryPath);
+    } catch (err) {
+      log(`[skill-sync] Source skill is unavailable, skipping ${name}:`, err);
+      continue;
+    }
+
+    if (entryStat.isSymbolicLink() || !entryStat.isDirectory()) {
+      continue;
+    }
+
+    const skillMdPath = path.join(entryPath, 'SKILL.md');
+    try {
+      const skillMdStat = lstatSync(skillMdPath);
+      if (skillMdStat.isSymbolicLink() || !skillMdStat.isFile()) {
         continue;
       }
+    } catch {
+      continue;
+    }
 
-      const entryStat = lstatSync(entryPath);
-      if (entryStat.isSymbolicLink() || !entryStat.isDirectory()) {
-        continue;
-      }
-
-      const skillMdPath = path.join(entryPath, 'SKILL.md');
-      try {
-        const skillMdStat = lstatSync(skillMdPath);
-        if (skillMdStat.isSymbolicLink() || !skillMdStat.isFile()) {
-          continue;
-        }
-      } catch {
-        continue;
-      }
-
-      const destPath = path.join(destSkillsDir, entry);
+    try {
+      const destPath = path.join(destSkillsDir, name);
 
       let destExists = false;
       try {
@@ -125,13 +110,13 @@ export function syncBundledSkillsFromPackage(
       }
 
       if (destExists) {
-        log(`[skill-sync] Skill already exists in destination: ${entry}`);
-        skippedExisting.push(entry);
+        log(`[skill-sync] Skill already exists in destination: ${name}`);
+        skippedExisting.push(name);
         continue;
       }
 
       const stagingDir = mkdtempSync(
-        path.join(destSkillsDir, `.sync-staging-${entry}-`),
+        path.join(destSkillsDir, `.sync-staging-${name}-`),
       );
 
       try {
@@ -145,17 +130,17 @@ export function syncBundledSkillsFromPackage(
 
         if (destExistsLate) {
           log(
-            `[skill-sync] Destination path was created during staging for ${entry}, skipping promotion.`,
+            `[skill-sync] Destination path was created during staging for ${name}, skipping promotion.`,
           );
-          skippedExisting.push(entry);
+          skippedExisting.push(name);
         } else {
           renameSync(stagingDir, destPath);
-          installed.push(entry);
-          log(`[skill-sync] Successfully synced skill: ${entry}`);
+          installed.push(name);
+          log(`[skill-sync] Successfully synced skill: ${name}`);
         }
       } catch (err) {
-        log(`[skill-sync] Failed to sync skill ${entry}:`, err);
-        failed.push(entry);
+        log(`[skill-sync] Failed to sync skill ${name}:`, err);
+        failed.push(name);
       } finally {
         try {
           if (existsSync(stagingDir)) {
@@ -169,8 +154,8 @@ export function syncBundledSkillsFromPackage(
         }
       }
     } catch (err) {
-      log(`[skill-sync] Error processing source entry ${entry}:`, err);
-      failed.push(entry);
+      log(`[skill-sync] Error processing source entry ${name}:`, err);
+      failed.push(name);
     }
   }
 

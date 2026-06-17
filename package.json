@@ -42,6 +42,7 @@
     "dist",
     "src/companion/companion-manifest.json",
     "src/skills",
+    "src/fork/skills",
     "oh-my-opencode-slim.schema.json",
     "README.md",
     "README.zh-CN.md",

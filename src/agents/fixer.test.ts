@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { createFixerAgent } from './fixer';
+import { createAgents } from './index';
 
 describe('fixer completion contract', () => {
   test('prompt requires task-package boundaries and completion evidence', () => {
-    const fixer = createFixerAgent('test/model');
+    const fixer = createAgents().find((agent) => agent.name === 'fixer');
+    expect(fixer).toBeDefined();
+    if (!fixer) return;
     const prompt = fixer.config.prompt;
 
     expect(prompt).toContain('under-specified non-trivial work refusal');
@@ -26,7 +28,9 @@ describe('fixer completion contract', () => {
   });
 
   test('prompt blocks human-facing work without reviewed design handoff', () => {
-    const fixer = createFixerAgent('test/model');
+    const fixer = createAgents().find((agent) => agent.name === 'fixer');
+    expect(fixer).toBeDefined();
+    if (!fixer) return;
     const prompt = fixer.config.prompt;
 
     expect(prompt).toContain('Human-facing');

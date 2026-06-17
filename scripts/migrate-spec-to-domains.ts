@@ -9,7 +9,7 @@
  *   --spec-dir defaults to ./docs/spec
  *   --domain is required (no auto-default — agents should pick deliberately)
  */
-import { migrateToDomains } from '../src/tools/spec/migrate';
+import { migrateToDomains } from '../src/fork/tools/spec/migrate';
 
 function parseArgs(argv: string[]): {
   specDir: string;

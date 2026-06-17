@@ -4,7 +4,7 @@ import {
   hasInternalInitiatorMarker,
   log,
   withTimeout,
-} from '../../utils';
+} from '../../../utils';
 import { createTodoHygiene } from './todo-hygiene';
 
 const HOOK_NAME = 'todo-hygiene';

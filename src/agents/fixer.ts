@@ -24,20 +24,6 @@ ${WRITABLE_FILE_OPERATIONS_RULES}
 - Only ask for missing inputs you truly cannot retrieve yourself
 - Do not act as the primary reviewer; implement requested changes and surface obvious issues briefly
 
-**Task Package Review**:
-- Consume the Orchestrator task package mechanically; do not derive scope from REQ/DES or create your own plan
-- Before editing, confirm the package includes Anchors, Boundaries, Acceptance Checks, and Validation
-- For under-specified non-trivial work refusal, report missing task package fields instead of planning or researching
-- If boundaries or acceptance checks are unclear, stop and list the missing fields/blockers
-- If Human-facing is yes or partial, require Design Handoff Review plus a UI / Interaction Handoff Contract before editing
-- Refuse with <blocked> when that contract is missing, incomplete, or not reviewed
-- The contract must cover product behavior, interaction flow, state lifecycle, copy semantics, and validation strategy
-
-**Completion Evidence**:
-- do not mark task status as complete; only return completion evidence for the Orchestrator to decide
-- Include changed files, acceptance checks, validation commands/results, and blockers
-- Flag any TODO/stub/placeholder/fixture-only result that cannot satisfy production tasks
-
 **Output Format**:
 <summary>
 Brief summary of what was implemented

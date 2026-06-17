@@ -5,9 +5,14 @@ import * as path from 'node:path';
 
 let importCounter = 0;
 
-async function syncBundledSkillsFromPackage(packageRoot: string) {
+type TestSkillRegistryEntry = { name: string; sourcePath: string };
+
+async function syncBundledSkillsFromPackage(
+  packageRoot: string,
+  skills: TestSkillRegistryEntry[],
+) {
   const module = await import(`./skill-sync?test=${importCounter++}`);
-  return module.syncBundledSkillsFromPackage(packageRoot);
+  return module.syncBundledSkillsFromPackage(packageRoot, skills);
 }
 
 describe('syncBundledSkillsFromPackage', () => {
@@ -61,16 +66,32 @@ describe('syncBundledSkillsFromPackage', () => {
     }
   });
 
-  test('installs missing bundled skill directories from a fake package root', async () => {
+  test('installs registered skills from bundled and fork skill roots', async () => {
     const skillName = 'test-skill';
-    const skillSrcDir = path.join(fakePackageRoot, 'src', 'skills', skillName);
+    const forkSkillName = 'fork-test-skill';
+    const skillSourcePath = path.join('src', 'skills', skillName);
+    const forkSkillSourcePath = path.join(
+      'src',
+      'fork',
+      'skills',
+      forkSkillName,
+    );
+    const skillSrcDir = path.join(fakePackageRoot, skillSourcePath);
+    const forkSkillSrcDir = path.join(fakePackageRoot, forkSkillSourcePath);
     fs.mkdirSync(skillSrcDir, { recursive: true });
+    fs.mkdirSync(forkSkillSrcDir, { recursive: true });
     fs.writeFileSync(path.join(skillSrcDir, 'SKILL.md'), '# Test Skill');
     fs.writeFileSync(path.join(skillSrcDir, 'some-file.txt'), 'hello world');
+    fs.writeFileSync(path.join(forkSkillSrcDir, 'SKILL.md'), '# Fork Skill');
+    fs.writeFileSync(path.join(forkSkillSrcDir, 'fork-file.txt'), 'from fork');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: skillSourcePath },
+      { name: forkSkillName, sourcePath: forkSkillSourcePath },
+    ]);
 
     expect(result.installed).toContain(skillName);
+    expect(result.installed).toContain(forkSkillName);
     expect(result.skippedExisting).toHaveLength(0);
     expect(result.failed).toHaveLength(0);
 
@@ -82,6 +103,19 @@ describe('syncBundledSkillsFromPackage', () => {
     expect(
       fs.readFileSync(path.join(destSkillDir, 'some-file.txt'), 'utf-8'),
     ).toBe('hello world');
+
+    const destForkSkillDir = path.join(
+      fakeDestConfigDir,
+      'skills',
+      forkSkillName,
+    );
+    expect(fs.existsSync(destForkSkillDir)).toBe(true);
+    expect(
+      fs.readFileSync(path.join(destForkSkillDir, 'SKILL.md'), 'utf-8'),
+    ).toBe('# Fork Skill');
+    expect(
+      fs.readFileSync(path.join(destForkSkillDir, 'fork-file.txt'), 'utf-8'),
+    ).toBe('from fork');
   });
 
   test('skips existing destination skill folders without overwriting', async () => {
@@ -96,7 +130,9 @@ describe('syncBundledSkillsFromPackage', () => {
     fs.mkdirSync(destSkillDir, { recursive: true });
     fs.writeFileSync(path.join(destSkillDir, 'SKILL.md'), '# Original Skill');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: path.join('src', 'skills', skillName) },
+    ]);
 
     expect(result.installed).toHaveLength(0);
     expect(result.skippedExisting).toContain(skillName);
@@ -114,7 +150,9 @@ describe('syncBundledSkillsFromPackage', () => {
     fs.mkdirSync(skillSrcDir, { recursive: true });
     fs.writeFileSync(path.join(skillSrcDir, 'other-file.txt'), 'hello');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: path.join('src', 'skills', skillName) },
+    ]);
 
     expect(result.installed).toHaveLength(0);
     expect(result.skippedExisting).toHaveLength(0);
@@ -141,7 +179,10 @@ describe('syncBundledSkillsFromPackage', () => {
     fs.mkdirSync(badSrcDir, { recursive: true });
     fs.writeFileSync(path.join(badSrcDir, 'SKILL.md'), '# Bad');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: goodSkill, sourcePath: path.join('src', 'skills', goodSkill) },
+      { name: badSkill, sourcePath: path.join('src', 'skills', badSkill) },
+    ]);
 
     expect(result.installed).toContain(goodSkill);
     expect(result.failed).toContain(badSkill);
@@ -164,7 +205,9 @@ describe('syncBundledSkillsFromPackage', () => {
     const sourceSkillsDir = path.join(fakePackageRoot, 'src', 'skills');
     fs.rmSync(sourceSkillsDir, { recursive: true, force: true });
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: 'missing-skill', sourcePath: path.join('src', 'skills') },
+    ]);
     expect(result.installed).toHaveLength(0);
     expect(result.skippedExisting).toHaveLength(0);
     expect(result.failed).toHaveLength(0);
@@ -179,7 +222,9 @@ describe('syncBundledSkillsFromPackage', () => {
     fs.mkdirSync(skillSrcDir, { recursive: true });
     fs.writeFileSync(path.join(skillSrcDir, 'SKILL.md'), '# Parent Created');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: path.join('src', 'skills', skillName) },
+    ]);
 
     expect(result.installed).toContain(skillName);
     const destSkillDir = path.join(fakeDestConfigDir, 'skills', skillName);
@@ -199,7 +244,9 @@ describe('syncBundledSkillsFromPackage', () => {
     // Create a regular file in place of the skill directory
     fs.writeFileSync(destSkillPath, 'I am a blocking file');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: path.join('src', 'skills', skillName) },
+    ]);
 
     expect(result.installed).toHaveLength(0);
     expect(result.skippedExisting).toContain(skillName);
@@ -226,7 +273,9 @@ describe('syncBundledSkillsFromPackage', () => {
     const destSkillPath = path.join(destSkillsDir, skillName);
     fs.symlinkSync(symlinkTarget, destSkillPath, 'dir');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: skillName, sourcePath: path.join('src', 'skills', skillName) },
+    ]);
 
     expect(result.installed).toHaveLength(0);
     expect(result.skippedExisting).toContain(skillName);
@@ -254,7 +303,13 @@ describe('syncBundledSkillsFromPackage', () => {
     // Create a symlink in source pointing to real-skill directory
     fs.symlinkSync(realSrcDir, symlinkSrcDir, 'dir');
 
-    const result = await syncBundledSkillsFromPackage(fakePackageRoot);
+    const result = await syncBundledSkillsFromPackage(fakePackageRoot, [
+      { name: realSkill, sourcePath: path.join('src', 'skills', realSkill) },
+      {
+        name: symlinkSkill,
+        sourcePath: path.join('src', 'skills', symlinkSkill),
+      },
+    ]);
 
     expect(result.installed).toContain(realSkill);
     expect(result.installed).not.toContain(symlinkSkill);

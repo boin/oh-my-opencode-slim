@@ -562,3 +562,24 @@ session checks pass, including terminal/reconciled state and matching
 Unknown raw `ses_*` ids MAY continue to pass through as explicit native OpenCode
 session resumes, because the plugin cannot infer their original specialist from
 the job board.
+
+## sdd-workflow/REQ-29: Fork-owned implementation surface
+
+Fork-only workflow assets MUST be isolated under fork-owned namespaces so
+future upstream merges touch as few shared files as possible. Descriptive
+fork documentation MUST move out of upstream-owned README and docs pages into
+`docs/fork/**`; upstream-owned docs SHOULD be restored to upstream content
+unless they are required runtime assets. Runtime fork behavior MUST remain
+available, but implementation detail SHOULD live under `src/fork/**` with only
+thin, stable integration points in upstream-owned entry files.
+
+Acceptance:
+
+- `README.md` and broad upstream docs no longer carry fork-only descriptive
+  sections when equivalent content can live in `docs/fork/**`.
+- fork-only tools, hooks, prompt overlays, and skills are concentrated under
+  `src/fork/**` where practical.
+- upstream-owned barrels and registries (`src/index.ts`, `src/hooks/index.ts`,
+  `src/tools/index.ts`, `src/mcp/index.ts`, `src/agents/*.ts`) contain only
+  minimal integration glue needed to preserve behavior.
+- existing fork behavior remains covered by tests and build verification.

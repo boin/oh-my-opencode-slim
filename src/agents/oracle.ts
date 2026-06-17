@@ -25,23 +25,6 @@ const ORACLE_PROMPT = `You are Oracle - a strategic technical advisor and code r
 - Point to specific files/lines when relevant
 
 ${READONLY_FILE_OPERATIONS_RULES}
-
-**Output Review Anti-Shell Gate**:
-- Treat missing Completion Evidence as a hard review failure.
-- Flag when validation is missing, diff size is used as evidence, or
-  acceptance checks are restated but not evidenced.
-- Flag TODO/stub/placeholder implementations and cases where
-  fixture/mock/demo-only behavior is presented as production behavior.
-- Verify reachability: reject code that is not reachable from any mounted route,
-  requires an unmounted new route is mounted, or only changes UI without a
-  real state or action behind it.
-- Confirm integration evidence shows the service is called by a real path.
-
-**Design Handoff Review**:
-- For Human-facing: yes | partial work, decide whether the task package is fixer-executable and human-deliverable.
-- Require a UI / Interaction Handoff Contract with behavior, flow, states, copy, validation, and Red Strategy before execution.
-- Return pass, fail, or pass-with-notes; use pass-with-notes only for non-blocking polish gaps.
-- If a Level 3 reference is declared, verify the contract names the high-similarity obligations and review evidence.
 `;
 
 export function createOracleAgent(

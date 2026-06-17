@@ -136,3 +136,19 @@ path. Update `README.md` and/or relevant docs to mention:
 - `.codegraph/` must be ignored;
 - CodeGraph graph results are advisory and do not replace normal tests,
   typecheck, lint, or smoke validation.
+
+## codegraph/DES-4: CodeGraph fork module
+
+Rationale anchor: codegraph/REQ-4.
+
+Move CodeGraph command implementation from `src/tools/codegraph/**` into
+`src/fork/tools/codegraph/**`. Move CodeGraph MCP probing/registration logic
+from the upstream-owned MCP registry into `src/fork/mcp/codegraph.ts` where
+practical. If `src/mcp/index.ts` must retain an options seam for project path
+or disabled MCP handling, keep that seam minimal and delegate CodeGraph-specific
+logic to the fork module.
+
+Tests follow the implementation into `src/fork/**` unless they exercise shared
+adapter behavior. The public behavior remains unchanged: available CodeGraph
+MCP tools are registered when the binary is usable, disabled MCP settings still
+apply, and `/codegraph` command registration still works.

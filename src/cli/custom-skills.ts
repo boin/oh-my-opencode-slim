@@ -11,7 +11,8 @@ import { getConfigDir } from './paths';
 
 /**
  * A custom skill bundled in this repository.
- * Unlike npx-installed skills, these are copied from src/skills/ to the OpenCode skills directory
+ * Unlike npx-installed skills, these are copied from bundled source directories
+ * to the OpenCode skills directory.
  */
 export interface CustomSkill {
   /** Skill name (folder name) */
@@ -51,26 +52,26 @@ export const CUSTOM_SKILLS: CustomSkill[] = [
     description:
       'SDD self-interrogation workflow that converts a raw request into a defensible requirements + design pair before any code is written',
     allowedAgents: ['orchestrator'],
-    sourcePath: 'src/skills/grill',
+    sourcePath: 'src/fork/skills/grill',
   },
   {
     name: 'brainstorming',
     description:
       'Fuzzy front-end ideation for non-SDD repositories before formal specification',
     allowedAgents: ['orchestrator'],
-    sourcePath: 'src/skills/brainstorming',
+    sourcePath: 'src/fork/skills/brainstorming',
   },
   {
     name: 'using-git-worktrees',
     description: 'Use git worktrees for isolated feature work',
     allowedAgents: ['orchestrator'],
-    sourcePath: 'src/skills/using-git-worktrees',
+    sourcePath: 'src/fork/skills/using-git-worktrees',
   },
   {
     name: 'finishing-a-development-branch',
     description: 'End-of-branch merge, PR, keep, or discard decision workflow',
     allowedAgents: ['orchestrator'],
-    sourcePath: 'src/skills/finishing-a-development-branch',
+    sourcePath: 'src/fork/skills/finishing-a-development-branch',
   },
   {
     name: 'deepwork',
@@ -136,7 +137,7 @@ function copyDirRecursive(src: string, dest: string): void {
 }
 
 /**
- * Install a custom skill by copying from src/skills/ to the OpenCode skills directory
+ * Install a custom skill by copying from its bundled source directory to the OpenCode skills directory.
  * @param skill - The custom skill to install
  * @param projectRoot - Root directory of oh-my-opencode-slim project
  * @returns True if installation succeeded, false otherwise

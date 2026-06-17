@@ -1,3 +1,7 @@
+export {
+  createTodoHygieneHook,
+  createTraceFreshnessHook,
+} from '../fork/hooks';
 export { createApplyPatchHook } from './apply-patch';
 export type { AutoUpdateCheckerOptions } from './auto-update-checker';
 export { createAutoUpdateCheckerHook } from './auto-update-checker';
@@ -15,5 +19,3 @@ export { createPhaseReminderHook } from './phase-reminder';
 export { createPostFileToolNudgeHook } from './post-file-tool-nudge';
 export { createReflectCommandHook } from './reflect';
 export { createTaskSessionManagerHook } from './task-session-manager';
-export { createTodoHygieneHook } from './todo-hygiene';
-export { createTraceFreshnessHook } from './trace-freshness';

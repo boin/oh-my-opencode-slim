@@ -1,6 +1,6 @@
 import type { AgentConfig } from '@opencode-ai/sdk/v2';
 import { WRITABLE_FILE_OPERATIONS_RULES } from '../config';
-import { buildSddTddAppendBlock } from './append-prompt';
+import { buildSddTddAppendBlock } from '../fork/agents';
 
 export interface AgentDefinition {
   name: string;

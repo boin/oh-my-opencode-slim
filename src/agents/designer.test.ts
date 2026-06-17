@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { createDesignerAgent } from './designer';
+import { createAgents } from './index';
 
 describe('designer SDD handoff contract', () => {
   test('prompt requires contract-first design synthesis', () => {
-    const designer = createDesignerAgent('test/model');
+    const designer = createAgents().find((agent) => agent.name === 'designer');
+    expect(designer).toBeDefined();
+    if (!designer) return;
     const prompt = designer.config.prompt;
 
     expect(prompt).toContain('contract-first');

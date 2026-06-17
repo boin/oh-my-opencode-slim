@@ -3,8 +3,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { PluginInput } from '@opencode-ai/plugin';
-import { probeCodeGraphBinary } from '../../mcp';
-import { createInternalAgentTextPart } from '../../utils';
+import { createInternalAgentTextPart } from '../../../utils';
+import { probeCodeGraphBinary } from '../../mcp/codegraph';
 
 const COMMAND_NAME = 'codegraph';
 

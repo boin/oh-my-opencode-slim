@@ -15,6 +15,7 @@ import {
   SUBAGENT_NAMES,
 } from '../config';
 import { getAgentMcpList } from '../config/agent-mcps';
+import { applyForkAgentPromptOverlay } from '../fork/agents';
 
 import { createCouncilAgent } from './council';
 import { createCouncillorAgent } from './councillor';
@@ -305,11 +306,15 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
     .filter(([name]) => !disabled.has(name))
     .map(([name, factory]) => {
       const customPrompts = loadAgentPrompt(name, config?.preset);
-      return factory(
+      const agent = factory(
         getModelForAgent(name),
         customPrompts.prompt,
         customPrompts.appendPrompt,
       );
+      if (!customPrompts.prompt) {
+        applyForkAgentPromptOverlay(agent);
+      }
+      return agent;
     });
 
   // 1b. Discover unknown keys in config.agents as custom subagents.

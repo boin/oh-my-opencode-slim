@@ -17,6 +17,12 @@ import {
   setActiveRuntimePreset,
 } from './config/runtime-preset';
 import { CouncilManager } from './council';
+import { createTodoHygieneHook, createTraceFreshnessHook } from './fork/hooks';
+import {
+  createCodegraphCommandManager,
+  createSpecTools,
+  createTraceTool,
+} from './fork/tools';
 import {
   createApplyPatchHook,
   createAutoUpdateCheckerHook,
@@ -29,8 +35,6 @@ import {
   createPostFileToolNudgeHook,
   createReflectCommandHook,
   createTaskSessionManagerHook,
-  createTodoHygieneHook,
-  createTraceFreshnessHook,
   ForegroundFallbackManager,
 } from './hooks';
 import { processImageAttachments } from './hooks/image-hook';
@@ -47,11 +51,8 @@ import {
   ast_grep_search,
   createAcpRunTool,
   createCancelTaskTool,
-  createCodegraphCommandManager,
   createCouncilTool,
   createPresetManager,
-  createSpecTools,
-  createTraceTool,
   createWebfetchTool,
 } from './tools';
 import { recordTuiAgentModel, recordTuiAgentModels } from './tui-state';

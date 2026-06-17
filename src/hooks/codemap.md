@@ -49,8 +49,8 @@ and managers for all hook-based runtime behaviors used by
 | Hook Point | Purpose | Implementations |
 |---|---|---|
 | `tool.execute.before` | Pre-process tool inputs | `apply-patch`, `task-session-manager` |
-| `tool.execute.after` | Post-process tool outputs | `delegate-task-retry`, `json-error-recovery`, `post-file-tool-nudge`, `task-session-manager`, `todo-hygiene` |
-| `experimental.chat.messages.transform` | Rewrite outbound user content | `filter-available-skills`, `phase-reminder`, `todo-hygiene` |
+| `tool.execute.after` | Post-process tool outputs | `delegate-task-retry`, `json-error-recovery`, `post-file-tool-nudge`, `task-session-manager` |
+| `experimental.chat.messages.transform` | Rewrite outbound user content | `filter-available-skills`, `phase-reminder` |
 | `experimental.chat.system.transform` | Inject system-level directives | `post-file-tool-nudge`, `task-session-manager` |
 | `chat.headers` | Mutate request headers | `chat-headers` |
 | `chat.message` | Track runtime session/agent mapping | `src/index.ts` session map |
@@ -68,10 +68,6 @@ and managers for all hook-based runtime behaviors used by
   user-facing aliases, resolves alias/task IDs before delegation, remembers fresh
   task IDs after completion, and drops stale entries on missing-session failure,
   renamed task IDs, or session deletion.
-- `createTodoHygieneHook` is a passive V2 reminder. It observes todo writes and
-  later tool activity, then injects a short instruction into the current
-  Orchestrator turn so user steering preserves still-valid todos instead of
-  replacing the list wholesale. It does not auto-continue work.
 
 ## Integration
 

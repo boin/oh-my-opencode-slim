@@ -71,3 +71,19 @@ because local testing found it unreliable for current source files.
 
 Configuration schema, generated JSON schema, and user-facing documentation MUST
 stay aligned with the new built-in MCP name and `/codegraph` workflow.
+
+## codegraph/REQ-4: CodeGraph fork isolation
+
+The CodeGraph integration MUST be treated as fork-owned behavior. CodeGraph
+command and MCP implementation details SHOULD live under `src/fork/**` rather
+than upstream-owned MCP/tool registries. Shared entry files MAY expose a thin
+merge point, but CodeGraph probing, command registration, tests, and related
+logic MUST be isolated enough that upstream MCP registry changes create minimal
+merge conflicts.
+
+Acceptance:
+
+- CodeGraph implementation files are under a fork-owned namespace.
+- built-in MCP creation still exposes CodeGraph when the binary is available
+  and not disabled.
+- command registration and tests continue to pass.

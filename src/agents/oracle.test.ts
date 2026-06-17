@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { createOracleAgent } from './oracle';
+import { createAgents } from './index';
 
 describe('oracle output review anti-shell gate', () => {
   test('prompt requires anti-shell completion evidence review semantics', () => {
-    const oracle = createOracleAgent('test/model');
+    const oracle = createAgents().find((agent) => agent.name === 'oracle');
+    expect(oracle).toBeDefined();
+    if (!oracle) return;
     const prompt = oracle.config.prompt;
 
     expect(prompt).toContain('Output Review Anti-Shell Gate');
@@ -24,7 +26,9 @@ describe('oracle output review anti-shell gate', () => {
   });
 
   test('prompt reviews fixer-executable human-deliverable design handoff', () => {
-    const oracle = createOracleAgent('test/model');
+    const oracle = createAgents().find((agent) => agent.name === 'oracle');
+    expect(oracle).toBeDefined();
+    if (!oracle) return;
     const prompt = oracle.config.prompt;
 
     expect(prompt).toContain('Design Handoff Review');

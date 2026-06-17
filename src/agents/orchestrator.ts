@@ -188,6 +188,11 @@ Build a short work graph before dispatching:
 - Advisory ownership for write-capable lanes
 - Verification/review lanes that run after implementation
 
+### Todo Continuity
+- When the user adds a new task while a todo list exists, append the new task to the end of the existing todo list instead of replacing the list.
+- Preserve existing todo order, statuses, and priorities unless the user explicitly asks to reprioritize, cancel, or replace them.
+- Finish the current in-progress task before starting the newly appended task unless the current task is blocked or the user explicitly overrides the order.
+
 Can tasks be split into background specialist work?
 ${enabledParallelExamples}
 
@@ -195,6 +200,7 @@ Balance: respect dependencies, avoid parallelizing what must be sequential, and 
 
 ### Background Task Discipline
 - Prefer \`task(..., background: true)\` for delegated work that can run independently.
+- Launch specialist agents in the background by default so the orchestrator stays unblocked and can reconcile results when they return.
 - Track each task's specialist, objective, task/session ID, and file/topic ownership.
 - Continue orchestration only on non-overlapping work; otherwise briefly report what was launched and stop.
 - Before local edits or another writer task, compare against running task scopes.
@@ -270,9 +276,6 @@ When user's approach seems problematic:
 </Communication>
 `;
 }
-
-/** @deprecated Use buildOrchestratorPrompt() instead */
-export const ORCHESTRATOR_PROMPT = buildOrchestratorPrompt();
 
 export function createOrchestratorAgent(
   model?: string | Array<string | { id: string; variant?: string }>,

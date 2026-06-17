@@ -2,6 +2,7 @@ import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs, getDisabledAgents } from './agents';
 import { buildOrchestratorPrompt } from './agents/orchestrator';
 import { CompanionManager } from './companion/manager';
+import { ensureCompanionVersion } from './companion/updater';
 import {
   type AgentOverrideConfig,
   deepMerge,
@@ -10,7 +11,6 @@ import {
 } from './config';
 import { parseList } from './config/agent-mcps';
 import { AGENT_ALIASES } from './config/constants';
-import { normalizeFallbackChainsForPreset } from './config/fallback-chains';
 import {
   getActiveRuntimePreset,
   getPreviousRuntimePreset,
@@ -27,12 +27,14 @@ import {
   createJsonErrorRecoveryHook,
   createPhaseReminderHook,
   createPostFileToolNudgeHook,
+  createReflectCommandHook,
   createTaskSessionManagerHook,
   createTodoHygieneHook,
   createTraceFreshnessHook,
   ForegroundFallbackManager,
 } from './hooks';
 import { processImageAttachments } from './hooks/image-hook';
+import type { MessageWithParts } from './hooks/types';
 import { createInterviewManager } from './interview';
 import { createBuiltinMcps } from './mcp';
 import {
@@ -43,6 +45,7 @@ import {
 import {
   ast_grep_replace,
   ast_grep_search,
+  createAcpRunTool,
   createCancelTaskTool,
   createCodegraphCommandManager,
   createCouncilTool,
@@ -87,7 +90,9 @@ async function appLog(
 /** Minimum expected registrations for a healthy plugin load. */
 const HEALTH_CHECK = {
   minAgents: 5,
-  minTools: 5,
+  // Default tool set when council and ACP agents are not configured:
+  // cancel_task, webfetch, ast_grep_search, ast_grep_replace.
+  minTools: 4,
   minMcps: 1,
 } as const;
 
@@ -142,6 +147,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let jsonErrorRecoveryHook: ReturnType<typeof createJsonErrorRecoveryHook>;
   let foregroundFallback: ForegroundFallbackManager;
   let deepworkCommandHook: ReturnType<typeof createDeepworkCommandHook>;
+  let reflectCommandHook: ReturnType<typeof createReflectCommandHook>;
   let taskSessionManagerHook: ReturnType<typeof createTaskSessionManagerHook>;
   let todoHygieneHook: ReturnType<typeof createTodoHygieneHook>;
   let backgroundJobBoard: BackgroundJobBoard;
@@ -151,6 +157,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let companionManager: CompanionManager;
   let councilTools: Record<string, unknown>;
   let cancelTaskTools: Record<string, unknown>;
+  let acpRunTools: Record<string, ReturnType<typeof createAcpRunTool>>;
   let webfetch: ReturnType<typeof createWebfetchTool>;
   let rewriteDisplayNameMentions: ReturnType<
     typeof createDisplayNameMentionRewriter
@@ -185,46 +192,18 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     agentDefs = createAgents(config);
     agents = getAgentConfigs(config);
 
-    // Build a map of agent name → priority model array for runtime
-    // fallback. Populated when the user configures model as an array in
-    // their plugin config.
+    // Build model array map and runtime fallback chains from _modelArray
+    // entries (when the user configures model as an array in
+    // agents.<name>.model). A single pass populates both data structures.
     modelArrayMap = {} as Record<
       string,
       Array<{ id: string; variant?: string }>
     >;
-    for (const agentDef of agentDefs) {
-      if (agentDef._modelArray && agentDef._modelArray.length > 0) {
-        modelArrayMap[agentDef.name] = agentDef._modelArray;
-      }
-    }
-    // Build runtime fallback chains for all foreground agents. Each chain
-    // is an ordered list of model strings to try when the current model is
-    // rate-limited. Seeds from _modelArray entries (when the user
-    // configures model as an array), then appends fallback.chains entries.
     runtimeChains = {} as Record<string, string[]>;
     for (const agentDef of agentDefs) {
       if (agentDef._modelArray?.length) {
+        modelArrayMap[agentDef.name] = agentDef._modelArray;
         runtimeChains[agentDef.name] = agentDef._modelArray.map((m) => m.id);
-      }
-    }
-    const activePresetForFallback =
-      getActiveRuntimePreset() ?? config.preset ?? null;
-
-    if (config.fallback?.enabled !== false) {
-      const chains = normalizeFallbackChainsForPreset(
-        (config.fallback?.chains as Record<string, string[] | undefined>) ?? {},
-        activePresetForFallback,
-      );
-      for (const [agentName, chainModels] of Object.entries(chains)) {
-        const existing = runtimeChains[agentName] ?? [];
-        const seen = new Set(existing);
-        for (const m of chainModels) {
-          if (!seen.has(m)) {
-            seen.add(m);
-            existing.push(m);
-          }
-        }
-        runtimeChains[agentName] = existing;
       }
     }
 
@@ -267,6 +246,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     mcps = createBuiltinMcps(config.disabled_mcps, config.websearch, {
       projectPath: ctx.worktree,
     });
+    acpRunTools =
+      Object.keys(config.acpAgents ?? {}).length > 0
+        ? { acp_run: createAcpRunTool(config.acpAgents) }
+        : {};
     webfetch = createWebfetchTool(ctx);
     backgroundJobBoard = new BackgroundJobBoard({
       maxReusablePerAgent: config.backgroundJobs?.maxSessionsPerAgent ?? 2,
@@ -285,6 +268,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     // Initialize auto-update checker hook
     autoUpdateChecker = createAutoUpdateCheckerHook(ctx, {
       autoUpdate: config.autoUpdate ?? true,
+      companion: config.companion,
     });
 
     // Initialize phase reminder hook for workflow compliance
@@ -324,6 +308,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     );
 
     deepworkCommandHook = createDeepworkCommandHook();
+    reflectCommandHook = createReflectCommandHook();
     taskSessionManagerHook = createTaskSessionManagerHook(ctx, {
       maxSessionsPerAgent: config.backgroundJobs?.maxSessionsPerAgent ?? 2,
       readContextMinLines: config.backgroundJobs?.readContextMinLines ?? 10,
@@ -354,6 +339,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     toolCount =
       Object.keys(councilTools).length +
       Object.keys(cancelTaskTools).length +
+      Object.keys(acpRunTools).length +
       1 + // webfetch
       2; // ast_grep_search, ast_grep_replace
   } catch (err) {
@@ -412,6 +398,23 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     }
   });
 
+  if (config.companion?.enabled === true) {
+    try {
+      const companionResult = await ensureCompanionVersion({
+        config: config.companion,
+        downloadTimeoutMs: 3_000,
+        lockTimeoutMs: 500,
+      });
+      if (companionResult.status === 'installed') {
+        log('[companion] updated before startup', companionResult.version);
+      } else if (companionResult.status === 'failed') {
+        log('[companion] startup update failed', companionResult.error);
+      }
+    } catch (err) {
+      log('[companion] startup update failed', String(err));
+    }
+  }
+
   companionManager.onLoad();
 
   return {
@@ -424,6 +427,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       ...createTraceTool(ctx),
       ...createSpecTools(ctx),
       ...cancelTaskTools,
+      ...acpRunTools,
       webfetch,
       ast_grep_search,
       ast_grep_replace,
@@ -466,74 +470,24 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       }
       const configAgent = opencodeConfig.agent as Record<string, unknown>;
 
-      // Model resolution for foreground agents: combine _modelArray
-      // entries with fallback.chains config, then pick the first model in
-      // the effective array for startup-time selection.
+      // Model resolution for foreground agents: use _modelArray entries
+      // to pick the first model for startup-time selection.
       //
       // Runtime failover on API errors (e.g. rate limits
       // mid-conversation) is handled separately by
       // ForegroundFallbackManager via the event hook.
-      const activePresetForFallback =
-        getActiveRuntimePreset() ?? config.preset ?? null;
-      const fallbackChainsEnabled = config.fallback?.enabled !== false;
-      const fallbackChains = fallbackChainsEnabled
-        ? normalizeFallbackChainsForPreset(
-            (config.fallback?.chains as Record<string, string[] | undefined>) ??
-              {},
-            activePresetForFallback,
-          )
-        : {};
+      if (Object.keys(modelArrayMap).length > 0) {
+        for (const [agentName, models] of Object.entries(modelArrayMap)) {
+          if (models.length === 0) continue;
 
-      // Build effective model arrays: seed from _modelArray, then append
-      // fallback.chains entries so the resolver considers the full chain
-      // when picking the best available provider at startup.
-      const effectiveArrays: Record<
-        string,
-        Array<{ id: string; variant?: string }>
-      > = {};
-
-      for (const [agentName, models] of Object.entries(modelArrayMap)) {
-        effectiveArrays[agentName] = [...models];
-      }
-
-      for (const [agentName, chainModels] of Object.entries(fallbackChains)) {
-        if (!chainModels || chainModels.length === 0) continue;
-
-        if (!effectiveArrays[agentName]) {
-          // Agent has no _modelArray — seed from its current string model
-          // so the fallback chain appends after it rather than replacing
-          // it.
-          const entry = configAgent[agentName] as
-            | Record<string, unknown>
-            | undefined;
-          const currentModel =
-            typeof entry?.model === 'string' ? entry.model : undefined;
-          effectiveArrays[agentName] = currentModel
-            ? [{ id: currentModel }]
-            : [];
-        }
-
-        const seen = new Set(effectiveArrays[agentName].map((m) => m.id));
-        for (const chainModel of chainModels) {
-          if (!seen.has(chainModel)) {
-            seen.add(chainModel);
-            effectiveArrays[agentName].push({ id: chainModel });
-          }
-        }
-      }
-
-      if (Object.keys(effectiveArrays).length > 0) {
-        for (const [agentName, modelArray] of Object.entries(effectiveArrays)) {
-          if (modelArray.length === 0) continue;
-
-          // Use the first model in the effective array. Not all providers
+          // Use the first model in the model array. Not all providers
           // require entries in opencodeConfig.provider — some are loaded
           // automatically by opencode (e.g. github-copilot, openrouter).
           // We cannot distinguish these from truly unconfigured providers
           // at config-hook time, so we cannot gate on the provider config
           // keys. Runtime failover is handled separately by
           // ForegroundFallbackManager.
-          const chosen = modelArray[0];
+          const chosen = models[0];
           const entry = configAgent[agentName] as
             | Record<string, unknown>
             | undefined;
@@ -750,6 +704,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       interviewManager.registerCommand(opencodeConfig);
       deepworkCommandHook.registerCommand(opencodeConfig);
+      reflectCommandHook.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
       codegraphCommandManager.registerCommand(opencodeConfig);
     },
@@ -945,6 +900,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
         output as { parts: Array<{ type: string; text?: string }> },
       );
+
+      await reflectCommandHook.handleCommandExecuteBefore(
+        input as {
+          command: string;
+          sessionID: string;
+          arguments: string;
+        },
+        output as { parts: Array<{ type: string; text?: string }> },
+      );
     },
 
     'chat.headers': chatHeadersHook['chat.headers'],
@@ -1035,18 +999,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       input: Record<string, never>,
       output: { messages: unknown[] },
     ): Promise<void> => {
-      // Type assertion since we know the structure matches
-      // MessageWithParts[]
-      const typedOutput = output as {
-        messages: Array<{
-          info: { role: string; agent?: string; sessionID?: string };
-          parts: Array<{
-            type: string;
-            text?: string;
-            [key: string]: unknown;
-          }>;
-        }>;
-      };
+      const typedOutput = output as { messages: MessageWithParts[] };
 
       for (const message of typedOutput.messages) {
         if (message.info.role !== 'user') {

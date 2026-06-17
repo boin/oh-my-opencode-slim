@@ -8,196 +8,9 @@
     "setDefaultAgent": {
       "type": "boolean"
     },
-    "scoringEngineVersion": {
-      "type": "string",
-      "enum": [
-        "v1",
-        "v2-shadow",
-        "v2"
-      ]
-    },
-    "balanceProviderUsage": {
-      "type": "boolean"
-    },
     "autoUpdate": {
       "description": "Disable automatic installation of plugin updates when false. Defaults to true.",
       "type": "boolean"
-    },
-    "manualPlan": {
-      "type": "object",
-      "properties": {
-        "orchestrator": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        },
-        "oracle": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        },
-        "designer": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        },
-        "explorer": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        },
-        "librarian": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        },
-        "fixer": {
-          "type": "object",
-          "properties": {
-            "primary": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback1": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback2": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            },
-            "fallback3": {
-              "type": "string",
-              "pattern": "^[^/\\s]+\\/[^\\s]+$"
-            }
-          },
-          "required": [
-            "primary",
-            "fallback1",
-            "fallback2",
-            "fallback3"
-          ]
-        }
-      },
-      "required": [
-        "orchestrator",
-        "oracle",
-        "designer",
-        "explorer",
-        "librarian",
-        "fixer"
-      ],
-      "additionalProperties": false
     },
     "presets": {
       "type": "object",
@@ -537,67 +350,13 @@
           "type": "number",
           "minimum": 0
         },
-        "chains": {
-          "default": {},
-          "type": "object",
-          "properties": {
-            "orchestrator": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "oracle": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "designer": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "explorer": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "librarian": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "fixer": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          "additionalProperties": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
         "retry_on_empty": {
           "default": true,
           "description": "When true (default), empty provider responses are treated as failures, triggering fallback/retry. Set to false to treat them as successes.",
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "council": {
       "type": "object",
@@ -648,12 +407,6 @@
         },
         "master": {
           "description": "DEPRECATED — ignored. Council agent synthesizes directly."
-        },
-        "master_timeout": {
-          "description": "DEPRECATED — ignored. Use \"timeout\" instead."
-        },
-        "master_fallback": {
-          "description": "DEPRECATED — ignored. No separate master session."
         }
       },
       "required": [
@@ -665,6 +418,11 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "binaryPath": {
+          "description": "Path to a custom companion binary to launch.",
+          "type": "string",
+          "minLength": 1
         },
         "position": {
           "type": "string",
@@ -682,7 +440,103 @@
             "medium",
             "large"
           ]
+        },
+        "gifPack": {
+          "description": "Bundled companion animation pack to use.",
+          "type": "string",
+          "enum": [
+            "default"
+          ]
+        },
+        "loopStyle": {
+          "description": "Companion animation playback style: classic loops or smooth ping-pong playback.",
+          "type": "string",
+          "enum": [
+            "classic",
+            "smooth"
+          ]
+        },
+        "speed": {
+          "description": "Companion animation playback speed multiplier. Defaults to 1.",
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 4
+        },
+        "debug": {
+          "description": "Enable verbose native companion debug logs.",
+          "type": "boolean"
         }
+      }
+    },
+    "acpAgents": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "orchestratorPrompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wrapperModel": {
+            "type": "string",
+            "pattern": "^[^/\\s]+\\/[^\\s]+$"
+          },
+          "timeoutMs": {
+            "default": 300000,
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 900000
+          },
+          "permissionMode": {
+            "default": "ask",
+            "type": "string",
+            "enum": [
+              "ask",
+              "allow",
+              "reject"
+            ]
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
       }
     }
   },

@@ -105,6 +105,16 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `agents.<customAgent>.prompt` | string | — | Full execution prompt for a custom agent |
 | `agents.<customAgent>.orchestratorPrompt` | string | — | Exact `@agent` block injected into the orchestrator prompt; must start with `@<agent-name>` |
 | `agents.<agent>.displayName` | string | — | Custom user-facing alias for the agent in the active config |
+| `acpAgents.<name>.command` | string | — | Command for an external ACP-compatible agent; creates a wrapper subagent named `<name>` |
+| `acpAgents.<name>.args` | string[] | `[]` | Arguments for the ACP agent command |
+| `acpAgents.<name>.env` | object | `{}` | Extra environment variables for the ACP subprocess |
+| `acpAgents.<name>.cwd` | string | session directory | Working directory override for this ACP subprocess; protocol paths should be absolute |
+| `acpAgents.<name>.description` | string | — | Description shown to OpenCode and injected into the orchestrator routing prompt |
+| `acpAgents.<name>.prompt` | string | generated wrapper prompt | Optional full prompt for the lightweight wrapper subagent |
+| `acpAgents.<name>.orchestratorPrompt` | string | generated routing block | Optional exact routing block injected into the orchestrator prompt |
+| `acpAgents.<name>.wrapperModel` | string | fixer default | Cheap OpenCode model used by the wrapper subagent that calls `acp_run` |
+| `acpAgents.<name>.permissionMode` | string | `ask` | How ACP permission requests are handled: `ask`, `allow`, or `reject` |
+| `acpAgents.<name>.timeoutMs` | integer | `300000` | Timeout for a single ACP run in milliseconds |
 | `disabled_agents` | string[] | `["observer"]` | Agent names to disable globally. Set to `[]` to enable Observer; this is global, not per-preset |
 | `autoUpdate` | boolean | `true` | Automatically install plugin updates in the background; set to `false` for notification-only mode |
 | `multiplexer.type` | string | `"none"` | Multiplexer mode: `auto`, `tmux`, `zellij`, or `none` |
@@ -118,10 +128,9 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `backgroundJobs.readContextMinLines` | integer | `10` | Minimum number of lines read from a file before it appears in reusable background-job context (0–1000) |
 | `backgroundJobs.readContextMaxFiles` | integer | `8` | Maximum number of recent read-context files shown per reusable child session (0–50) |
 | `disabled_mcps` | string[] | `[]` | MCP server IDs to disable globally |
-| `fallback.enabled` | boolean | `false` | Enable model failover on timeout/error |
+| `fallback.enabled` | boolean | `true` | Enable model failover on timeout/error |
 | `fallback.timeoutMs` | number | `15000` | Time before aborting and trying next model |
 | `fallback.retryDelayMs` | number | `500` | Delay between retry attempts |
-| `fallback.chains.<agent>` | string[] | — | Ordered fallback model IDs for an agent |
 | `fallback.retry_on_empty` | boolean | `true` | Treat silent empty provider responses (0 tokens) as failures and retry. Set `false` to accept empty responses |
 | `council.presets` | object | — | **Required if using council.** Named councillor presets |
 | `council.presets.<name>.<councillor>.model` | string | — | Councillor model |
@@ -137,8 +146,60 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `interview.port` | integer | `0` | Interview server port (0–65535). `0` = OS-assigned random port (per-session mode). Any value > 0 enables [dashboard mode](interview.md#dashboard-mode) |
 | `interview.dashboard` | boolean | `false` | Enable [dashboard mode](interview.md#dashboard-mode) on the default port (43211). Setting `port` > 0 also enables dashboard mode. If both are set, `port` takes precedence |
 | `companion.enabled` | boolean | `false` | Enable/disable the floating window Rust companion |
+| `companion.binaryPath` | string | — | Optional path to a custom companion binary to launch instead of the default install path |
 | `companion.position` | string | `"bottom-right"` | The initial corner position of the companion window: `bottom-right`, `bottom-left`, `top-right`, or `top-left` |
 | `companion.size` | string | `"medium"` | The default size preset of the companion window: `small` (80px), `medium` (120px), or `large` (160px) |
+
+> **niri note:** `companion-v0.1.3` includes the fixed native companion release.
+> To make it open as a bottom-right overlay, add a niri rule matching its stable
+> `app-id`/title (`oh-my-opencode-slim-companion`), for example:
+>
+> ```kdl
+> window-rule {
+>     match app-id=r"^oh-my-opencode-slim-companion$"
+>     match title=r"^oh-my-opencode-slim-companion$"
+>     open-floating true
+>     open-focused false
+>     default-floating-position x=16 y=16 relative-to="bottom-right"
+> }
+> ```
+
+### ACP-connected agents
+
+Use `acpAgents` to expose external Agent Client Protocol servers as optional
+OpenCode subagents. The plugin creates a lightweight wrapper agent for each
+entry. The wrapper calls the built-in `acp_run` tool, which starts the ACP
+process, creates a session, sends the task, and returns the streamed result.
+`command` is only the executable; put flags and subcommands in `args`.
+
+See **[ACP Agents](acp-agents.md)** for the dedicated setup guide, auth notes,
+and troubleshooting.
+
+```jsonc
+{
+  "acpAgents": {
+    "claude-research": {
+      "command": "claude-code-acp",
+      "args": [],
+      "description": "Claude Code subscription agent for deep research",
+      "wrapperModel": "openai/gpt-5.4-mini",
+      "permissionMode": "ask",
+      "timeoutMs": 300000
+    },
+    "gemini-acp": {
+      "command": "gemini",
+      "args": ["--experimental-acp"],
+      "description": "Gemini CLI through ACP"
+    }
+  }
+}
+```
+
+After restart, the orchestrator can delegate to `@claude-research` or
+`@gemini-acp`. Use safe names matching `^[a-z][a-z0-9_-]*$`; names cannot
+conflict with built-in or custom agents. `permissionMode` controls ACP
+permission requests, but the plugin still asks before launching the configured
+subprocess.
 
 ### Council configuration note
 

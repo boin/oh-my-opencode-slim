@@ -21,6 +21,23 @@ const cacheMocks = {
   resolveInstallContext: mock(() => ({ installDir: '/tmp/opencode' })),
 };
 
+const skillSyncMocks = {
+  syncBundledSkillsFromPackage: mock(() => ({
+    installed: [],
+    skippedExisting: [],
+    failed: [],
+  })),
+};
+
+const companionUpdaterMocks = {
+  ensureCompanionVersion: mock(async () => ({
+    status: 'current' as const,
+    binaryPath: '/tmp/companion',
+    version: '0.1.2',
+  })),
+  loadCompanionManifestFromPackageRoot: mock(() => null),
+};
+
 const crossSpawnMock = mock((_command: string[]) => ({
   exited: Promise.resolve(0),
   exitCode: 0,
@@ -37,6 +54,10 @@ mock.module('../../utils/logger', () => ({
 mock.module('./checker', () => checkerMocks);
 
 mock.module('./cache', () => cacheMocks);
+
+mock.module('./skill-sync', () => skillSyncMocks);
+
+mock.module('../../companion/updater', () => companionUpdaterMocks);
 
 mock.module('../../utils/compat', () => ({
   crossSpawn: crossSpawnMock,
@@ -114,6 +135,26 @@ describe('auto-update-checker/index', () => {
       stderr: () => Promise.resolve(''),
       proc: {} as never,
     }));
+
+    skillSyncMocks.syncBundledSkillsFromPackage.mockReset();
+    skillSyncMocks.syncBundledSkillsFromPackage.mockImplementation(() => ({
+      installed: [],
+      skippedExisting: [],
+      failed: [],
+    }));
+
+    companionUpdaterMocks.ensureCompanionVersion.mockReset();
+    companionUpdaterMocks.ensureCompanionVersion.mockImplementation(
+      async () => ({
+        status: 'current' as const,
+        binaryPath: '/tmp/companion',
+        version: '0.1.2',
+      }),
+    );
+    companionUpdaterMocks.loadCompanionManifestFromPackageRoot.mockReset();
+    companionUpdaterMocks.loadCompanionManifestFromPackageRoot.mockImplementation(
+      () => null,
+    );
   });
 
   afterEach(() => {
@@ -183,6 +224,9 @@ describe('auto-update-checker/index', () => {
       ['bun', 'install'],
       expect.objectContaining({ cwd: '/tmp/opencode' }),
     );
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).toHaveBeenCalledWith(
+      '/tmp/opencode/node_modules/oh-my-opencode-slim',
+    );
     expect(showToast).toHaveBeenCalledWith({
       body: {
         title: 'OMO-Slim Updated!',
@@ -191,6 +235,182 @@ describe('auto-update-checker/index', () => {
         duration: 8000,
       },
     });
+  });
+
+  test('includes newly installed bundled skills in success toast', async () => {
+    checkerMocks.findPluginEntry.mockImplementation(() => ({
+      pinnedVersion: null,
+      isPinned: false,
+    }));
+    checkerMocks.getCachedVersion.mockImplementation(() => '0.9.1');
+    checkerMocks.getLatestCompatibleVersion.mockImplementation(async () => ({
+      latestVersion: '0.9.11',
+      latestMajorVersion: null,
+      blockedByMajor: false,
+    }));
+    skillSyncMocks.syncBundledSkillsFromPackage.mockImplementation(() => ({
+      installed: ['reflect', 'worktrees'],
+      skippedExisting: ['codemap'],
+      failed: [],
+    }));
+
+    const { createAutoUpdateCheckerHook } = await import(
+      `./index?test=${importCounter++}`
+    );
+    const { ctx, showToast } = createCtx();
+
+    const hook = createAutoUpdateCheckerHook(ctx as never);
+    hook.event({ event: { type: 'session.created', properties: {} } });
+    await waitForCalls(showToast);
+
+    expect(showToast).toHaveBeenCalledWith({
+      body: {
+        title: 'OMO-Slim Updated!',
+        message:
+          'v0.9.1 → v0.9.11\nAdded bundled skills: reflect, worktrees\nRestart OpenCode to apply.',
+        variant: 'success',
+        duration: 8000,
+      },
+    });
+  });
+
+  test('updates enabled companion after plugin auto-update', async () => {
+    checkerMocks.findPluginEntry.mockImplementation(() => ({
+      pinnedVersion: null,
+      isPinned: false,
+    }));
+    checkerMocks.getCachedVersion.mockImplementation(() => '0.9.1');
+    checkerMocks.getLatestCompatibleVersion.mockImplementation(async () => ({
+      latestVersion: '0.9.11',
+      latestMajorVersion: null,
+      blockedByMajor: false,
+    }));
+    companionUpdaterMocks.loadCompanionManifestFromPackageRoot.mockImplementation(
+      () => ({
+        version: '0.2.0',
+        tag: 'companion-v0.2.0',
+        repo: 'owner/repo',
+      }),
+    );
+    companionUpdaterMocks.ensureCompanionVersion.mockImplementation(
+      async () => ({
+        status: 'installed' as const,
+        binaryPath: '/tmp/companion',
+        version: '0.2.0',
+      }),
+    );
+
+    const { createAutoUpdateCheckerHook } = await import(
+      `./index?test=${importCounter++}`
+    );
+    const { ctx, showToast } = createCtx();
+
+    const hook = createAutoUpdateCheckerHook(ctx as never, {
+      companion: { enabled: true },
+    });
+    hook.event({ event: { type: 'session.created', properties: {} } });
+    await waitForCalls(showToast);
+
+    expect(
+      companionUpdaterMocks.loadCompanionManifestFromPackageRoot,
+    ).toHaveBeenCalledWith('/tmp/opencode/node_modules/oh-my-opencode-slim');
+    expect(companionUpdaterMocks.ensureCompanionVersion).toHaveBeenCalledWith({
+      config: { enabled: true },
+      manifest: {
+        version: '0.2.0',
+        tag: 'companion-v0.2.0',
+        repo: 'owner/repo',
+      },
+    });
+    expect(showToast).toHaveBeenCalledWith({
+      body: {
+        title: 'OMO-Slim Updated!',
+        message:
+          'v0.9.1 → v0.9.11\nCompanion updated.\nRestart OpenCode to apply.',
+        variant: 'success',
+        duration: 8000,
+      },
+    });
+  });
+
+  test('keeps plugin update successful when companion update fails', async () => {
+    checkerMocks.findPluginEntry.mockImplementation(() => ({
+      pinnedVersion: null,
+      isPinned: false,
+    }));
+    checkerMocks.getCachedVersion.mockImplementation(() => '0.9.1');
+    checkerMocks.getLatestCompatibleVersion.mockImplementation(async () => ({
+      latestVersion: '0.9.11',
+      latestMajorVersion: null,
+      blockedByMajor: false,
+    }));
+    companionUpdaterMocks.ensureCompanionVersion.mockImplementation(
+      async () => ({
+        status: 'failed' as const,
+        binaryPath: '/tmp/companion',
+        error: 'network down',
+      }),
+    );
+
+    const { createAutoUpdateCheckerHook } = await import(
+      `./index?test=${importCounter++}`
+    );
+    const { ctx, showToast } = createCtx();
+
+    const hook = createAutoUpdateCheckerHook(ctx as never, {
+      companion: { enabled: true },
+    });
+    hook.event({ event: { type: 'session.created', properties: {} } });
+    await waitForCalls(showToast);
+
+    expect(showToast).toHaveBeenCalledWith({
+      body: {
+        title: 'OMO-Slim Updated!',
+        message:
+          'v0.9.1 → v0.9.11\nCompanion update will retry on restart.\nRestart OpenCode to apply.',
+        variant: 'success',
+        duration: 8000,
+      },
+    });
+  });
+
+  test('still reports update success when bundled skill sync has failures', async () => {
+    checkerMocks.findPluginEntry.mockImplementation(() => ({
+      pinnedVersion: null,
+      isPinned: false,
+    }));
+    checkerMocks.getCachedVersion.mockImplementation(() => '0.9.1');
+    checkerMocks.getLatestCompatibleVersion.mockImplementation(async () => ({
+      latestVersion: '0.9.11',
+      latestMajorVersion: null,
+      blockedByMajor: false,
+    }));
+    skillSyncMocks.syncBundledSkillsFromPackage.mockImplementation(() => ({
+      installed: [],
+      skippedExisting: [],
+      failed: ['reflect'],
+    }));
+
+    const { createAutoUpdateCheckerHook } = await import(
+      `./index?test=${importCounter++}`
+    );
+    const { ctx, showToast } = createCtx();
+
+    const hook = createAutoUpdateCheckerHook(ctx as never);
+    hook.event({ event: { type: 'session.created', properties: {} } });
+    await waitForCalls(showToast);
+
+    expect(showToast).toHaveBeenCalledWith({
+      body: {
+        title: 'OMO-Slim Updated!',
+        message: 'v0.9.1 → v0.9.11\nRestart OpenCode to apply.',
+        variant: 'success',
+        duration: 8000,
+      },
+    });
+    expect(logMock).toHaveBeenCalledWith(
+      '[auto-update-checker] Skill sync warnings/failures: reflect',
+    );
   });
 
   test('shows notification-only toast when auto-update is disabled', async () => {
@@ -226,6 +446,7 @@ describe('auto-update-checker/index', () => {
     });
     expect(cacheMocks.preparePackageUpdate).not.toHaveBeenCalled();
     expect(crossSpawnMock).not.toHaveBeenCalled();
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
   });
 
   test('shows prepare failure toast and skips installation when active install cannot be resolved', async () => {
@@ -251,6 +472,7 @@ describe('auto-update-checker/index', () => {
     await waitForCalls(showToast);
 
     expect(crossSpawnMock).not.toHaveBeenCalled();
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith({
       body: {
         title: 'OMO-Slim 0.9.11',
@@ -296,6 +518,7 @@ describe('auto-update-checker/index', () => {
       ['bun', 'install'],
       expect.objectContaining({ cwd: '/tmp/opencode' }),
     );
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith({
       body: {
         title: 'OMO-Slim 0.9.11',
@@ -339,6 +562,7 @@ describe('auto-update-checker/index', () => {
     });
     expect(cacheMocks.preparePackageUpdate).not.toHaveBeenCalled();
     expect(crossSpawnMock).not.toHaveBeenCalled();
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
   });
 
   test('shows only migration toast when compatible and blocked major updates coexist', async () => {
@@ -370,6 +594,7 @@ describe('auto-update-checker/index', () => {
     });
     expect(cacheMocks.preparePackageUpdate).not.toHaveBeenCalled();
     expect(crossSpawnMock).not.toHaveBeenCalled();
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
   });
 
   test('does not show migration copy for unparseable current versions', async () => {
@@ -406,5 +631,6 @@ describe('auto-update-checker/index', () => {
     });
     expect(cacheMocks.preparePackageUpdate).not.toHaveBeenCalled();
     expect(crossSpawnMock).not.toHaveBeenCalled();
+    expect(skillSyncMocks.syncBundledSkillsFromPackage).not.toHaveBeenCalled();
   });
 });

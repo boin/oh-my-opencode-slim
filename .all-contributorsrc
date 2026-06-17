@@ -551,6 +551,33 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "bobbyunknown",
+      "name": "Insomnia",
+      "avatar_url": "https://avatars.githubusercontent.com/u/62272380?v=4",
+      "profile": "https://github.com/bobbyunknown",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "andrescastane",
+      "name": "Andres Castañeda",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13487870?v=4",
+      "profile": "https://github.com/andrescastane",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Zaradacht",
+      "name": "Zaradacht Taifour (Zack)",
+      "avatar_url": "https://avatars.githubusercontent.com/u/24251016?v=4",
+      "profile": "https://zaradacht.com/",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitConvention": "angular"

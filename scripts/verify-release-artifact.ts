@@ -30,11 +30,14 @@ const packagedRequiredFiles = [
   'dist/index.d.ts',
   'dist/cli/index.js',
   'oh-my-opencode-slim.schema.json',
+  'src/companion/companion-manifest.json',
   'src/skills/simplify/SKILL.md',
   'src/skills/codemap/SKILL.md',
   'src/skills/clonedeps/SKILL.md',
   'src/skills/deepwork/SKILL.md',
+  'src/skills/reflect/SKILL.md',
   'src/skills/oh-my-opencode-slim/SKILL.md',
+  'src/skills/worktrees/SKILL.md',
 ];
 
 function fail(message: string): never {

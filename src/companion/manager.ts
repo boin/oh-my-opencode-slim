@@ -1,9 +1,10 @@
-import { spawn } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import * as os from 'node:os';
@@ -17,15 +18,21 @@ interface CompanionSession {
   active_agents: string[];
   status: string;
   pid: number;
+  config?: CompanionState['config'];
 }
 
 interface CompanionState {
   version: 1;
   sessions: CompanionSession[];
+  window_positions?: Record<string, { x: number; y: number }>;
   config?: {
     enabled: boolean;
     position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
     size: 'small' | 'medium' | 'large';
+    gifPack: 'default';
+    loopStyle: 'classic' | 'smooth';
+    speed: number;
+    debug: boolean;
   };
 }
 
@@ -44,7 +51,7 @@ export function stateFilePath(): string {
   );
 }
 
-function binaryPath(): string | null {
+function defaultBinaryPath(): string {
   const xdg = process.env.XDG_DATA_HOME?.trim();
   const base =
     xdg && path.isAbsolute(xdg)
@@ -54,7 +61,7 @@ function binaryPath(): string | null {
     os.platform() === 'win32'
       ? 'oh-my-opencode-slim-companion.exe'
       : 'oh-my-opencode-slim-companion';
-  const bin = path.join(
+  return path.join(
     base,
     'opencode',
     'storage',
@@ -62,6 +69,13 @@ function binaryPath(): string | null {
     'bin',
     binaryName,
   );
+}
+
+export function resolveCompanionBinaryPath(
+  config?: CompanionConfig,
+): string | null {
+  const configured = config?.binaryPath?.trim();
+  const bin = configured || defaultBinaryPath();
   return existsSync(bin) ? bin : null;
 }
 
@@ -76,16 +90,42 @@ function readState(): CompanionState {
   return { version: 1, sessions: [] };
 }
 
-function writeState(state: CompanionState): void {
+function writeState(mutator: (state: CompanionState) => void): void {
   const file = stateFilePath();
   try {
     mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify(state));
-    renameSync(tmp, file);
+    const release = acquireStateLock(file);
+    try {
+      const state = readState();
+      mutator(state);
+      const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+      writeFileSync(tmp, JSON.stringify(state));
+      renameSync(tmp, file);
+    } finally {
+      release();
+    }
   } catch (err) {
     log('[companion] write failed', String(err));
   }
+}
+
+function acquireStateLock(file: string): () => void {
+  const lock = `${file}.lock`;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      mkdirSync(lock);
+      return () => {
+        try {
+          rmSync(lock, { recursive: true, force: true });
+        } catch {}
+      };
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+    }
+  }
+  throw new Error('timed out waiting for companion state lock');
 }
 
 /**
@@ -103,6 +143,7 @@ export class CompanionManager {
   /** sessionId → agent name, for sessions currently busy. */
   private readonly busyAgentSessions = new Map<string, string>();
   private readonly config?: CompanionConfig;
+  private companionProcess: ChildProcess | null = null;
 
   constructor(sessionId: string, cwd: string, config?: CompanionConfig) {
     this.id = sessionId;
@@ -113,12 +154,12 @@ export class CompanionManager {
   onLoad(): void {
     if (this.config?.enabled !== true) {
       try {
-        const state = readState();
-        const filtered = state.sessions.filter((s) => s.session_id !== this.id);
-        if (filtered.length !== state.sessions.length) {
-          state.sessions = filtered;
-          writeState(state);
-        }
+        if (!existsSync(stateFilePath())) return;
+        writeState((state) => {
+          state.sessions = state.sessions.filter(
+            (s) => s.session_id !== this.id,
+          );
+        });
       } catch {}
       return;
     }
@@ -183,9 +224,15 @@ export class CompanionManager {
 
   onExit(): void {
     if (this.config?.enabled !== true) return;
-    const state = readState();
-    state.sessions = state.sessions.filter((s) => s.session_id !== this.id);
-    writeState(state);
+    if (this.companionProcess) {
+      try {
+        this.companionProcess.kill();
+      } catch {}
+      this.companionProcess = null;
+    }
+    writeState((state) => {
+      state.sessions = state.sessions.filter((s) => s.session_id !== this.id);
+    });
   }
 
   /** One entry per running agent instance (two fixers → two cells). */
@@ -200,28 +247,43 @@ export class CompanionManager {
   private flush(): void {
     if (this.config?.enabled !== true) return;
     try {
-      const state = readState();
       const entry: CompanionSession = {
         session_id: this.id,
         cwd: this.cwd,
         active_agents: this.activeAgents(),
         status: this.status,
         pid: process.pid,
+        config: this.config
+          ? {
+              enabled: this.config.enabled ?? false,
+              position: this.config.position ?? 'bottom-right',
+              size: this.config.size ?? 'medium',
+              gifPack: this.config.gifPack ?? 'default',
+              loopStyle: this.config.loopStyle ?? 'classic',
+              speed: this.config.speed ?? 1,
+              debug: this.config.debug ?? false,
+            }
+          : undefined,
       };
-      const idx = state.sessions.findIndex((s) => s.session_id === this.id);
-      if (idx >= 0) {
-        state.sessions[idx] = entry;
-      } else {
-        state.sessions.push(entry);
-      }
-      if (this.config) {
-        state.config = {
-          enabled: this.config.enabled ?? false,
-          position: this.config.position ?? 'bottom-right',
-          size: this.config.size ?? 'medium',
-        };
-      }
-      writeState(state);
+      writeState((state) => {
+        const idx = state.sessions.findIndex((s) => s.session_id === this.id);
+        if (idx >= 0) {
+          state.sessions[idx] = entry;
+        } else {
+          state.sessions.push(entry);
+        }
+        if (this.config) {
+          state.config = {
+            enabled: this.config.enabled ?? false,
+            position: this.config.position ?? 'bottom-right',
+            size: this.config.size ?? 'medium',
+            gifPack: this.config.gifPack ?? 'default',
+            loopStyle: this.config.loopStyle ?? 'classic',
+            speed: this.config.speed ?? 1,
+            debug: this.config.debug ?? false,
+          };
+        }
+      });
     } catch (err) {
       log('[companion] flush failed', String(err));
     }
@@ -229,30 +291,36 @@ export class CompanionManager {
 
   private spawnIfAvailable(): void {
     if (this.config?.enabled !== true) return;
-    const bin = binaryPath();
+    const bin = resolveCompanionBinaryPath(this.config);
     if (!bin) {
-      const xdg = process.env.XDG_DATA_HOME?.trim();
-      const base =
-        xdg && path.isAbsolute(xdg)
-          ? xdg
-          : path.join(os.homedir(), '.local', 'share');
-      const expected = path.join(
-        base,
-        'o‍pencode',
-        'storage',
-        'oh-my-o‍pencode-slim',
-        'bin',
-        'oh-my-o‍pencode-slim-companion',
-      );
+      const expected = this.config.binaryPath?.trim() || defaultBinaryPath();
       log(
         `[companion] enabled but companion binary not found at expected path: ${expected}. Please install/download the companion binary separately.`,
       );
       return;
     }
     try {
-      const child = spawn(bin, [], { detached: true, stdio: 'ignore' });
+      const child = spawn(bin, [], {
+        detached: true,
+        env: {
+          ...process.env,
+          OH_MY_OPENCODE_SLIM_COMPANION_SESSION_ID: this.id,
+          ...(this.config.debug === true
+            ? { OH_MY_OPENCODE_SLIM_COMPANION_DEBUG: '1' }
+            : {}),
+        },
+        stdio: 'ignore',
+      });
+      this.companionProcess = child;
       child.unref();
-      log('[companion] spawned', bin);
+      log(
+        '[companion] spawned',
+        JSON.stringify({
+          bin,
+          sessionId: this.id,
+          debug: this.config.debug === true,
+        }),
+      );
     } catch (err) {
       log('[companion] spawn failed', String(err));
     }

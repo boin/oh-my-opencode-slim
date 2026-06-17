@@ -203,6 +203,7 @@ export function mergePluginConfigs(
     backgroundJobs: deepMerge(base.backgroundJobs, override.backgroundJobs),
     fallback: deepMerge(base.fallback, override.fallback),
     council: deepMerge(base.council, override.council),
+    acpAgents: deepMerge(base.acpAgents, override.acpAgents),
     companion: deepMerge(
       base.companion as Record<string, unknown> | undefined,
       override.companion as Record<string, unknown> | undefined,
@@ -321,8 +322,13 @@ export function loadPluginConfig(
   if (config.companion) {
     config.companion = {
       enabled: config.companion.enabled ?? false,
+      binaryPath: config.companion.binaryPath,
       position: config.companion.position ?? 'bottom-right',
       size: config.companion.size ?? 'medium',
+      gifPack: config.companion.gifPack ?? 'default',
+      loopStyle: config.companion.loopStyle ?? 'classic',
+      speed: config.companion.speed ?? 1,
+      debug: config.companion.debug ?? false,
     };
   }
 

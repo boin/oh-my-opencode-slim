@@ -50,7 +50,7 @@ export const CUSTOM_SKILLS: CustomSkill[] = [
   {
     name: 'grill',
     description:
-      'SDD self-interrogation workflow that converts a raw request into a defensible requirements + design pair before any code is written',
+      'Docs-aware SDD self-interrogation workflow that converts raw requests into requirements/design, shared terminology, and ADR-worthy decisions',
     allowedAgents: ['orchestrator'],
     sourcePath: 'src/fork/skills/grill',
   },

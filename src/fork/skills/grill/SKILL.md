@@ -1,15 +1,18 @@
 ---
 name: grill
-description: Self-interrogation workflow that converts a raw user idea into a tight SDD requirements + design pair under the domain + job two-tier layout. Use BEFORE writing any spec; selects the right layer (domain trunk vs job) automatically.
+description: Docs-aware SDD self-interrogation workflow that converts a raw user idea into requirements + design, maintains shared terminology, and records ADR-worthy decisions under the domain + job two-tier layout.
 ---
 
 # Grill
 
 ## Purpose
 
-Convert a vague request into a defensible spec. The orchestrator interrogates
-its own assumptions first; only unanswerable or judgment-call questions are
-escalated to the human.
+Convert a vague request into a defensible spec. In a codebase, `grill` is
+docs-aware: it reads the smallest relevant shared context before asking
+questions, uses project terminology consistently, and records durable terms or
+ADR-worthy decisions after convergence. The orchestrator interrogates its own
+assumptions first; only unanswerable or judgment-call questions are escalated to
+the human.
 
 Output: domain spec under `docs/spec/domains/<domain>/{requirements,design}.md`
 or a job proposal under `docs/spec/jobs/<slug>/`, depending on the change
@@ -71,6 +74,13 @@ Default path. Open a job when introducing or changing behavior. Reasons:
 - Trivial change (typo, one-line fix, single bounded edit < 20 lines).
 - Pure execution work where the user explicitly skips spec.
 
+User approval phrases such as "方案没有问题了，可以开始实现了", "go ahead", or
+"looks good, implement it" are implementation authorization signals, not
+automatic SDD-start signals. If adequate SDD material already exists, continue to
+execution gates. If the change is non-trivial and lacks adequate spec material,
+open or complete a grill job before implementation unless the user explicitly
+skips SDD. Minor bounded changes still use the normal exemption.
+
 ## Domain naming discipline
 
 Before naming a new domain:
@@ -85,7 +95,26 @@ Before naming a new domain:
 There is no central domain registry — this is a behavior rule, not a
 runtime check. Reviewers can challenge later.
 
-## The four phases (unchanged from prior version)
+## 0. Context docs pass
+
+Before the four grill phases in any codebase or SDD repo, read only the smallest
+obvious shared-language and decision context:
+
+1. `docs/spec/context.md`
+2. `docs/spec/domains/<domain>/glossary.md` for affected domains
+3. root `context.md`
+4. `docs/spec/adr/` or `docs/adr/` indexes and records when present
+
+Missing context files do not block grill. Record a context-doc assumption and
+continue. Do not crawl all docs; the pass is bounded to shared context files,
+affected domain glossaries, and existing ADR locations.
+
+Carry known terms into phase 1. Add `A-term-N` assumptions for unclear terms,
+naming mismatches, missing definitions, or user wording that does not appear in
+specs/code. Resolve self-answerable terminology questions via read/search before
+asking the human.
+
+## The four phases
 
 ### 1. Assumptions
 
@@ -127,6 +156,69 @@ with one-sided dependency definitions.
 - Each round, ask: "Does the residual `H-N` set block writing?" If no, write.
 - Hard cap: 3 rounds. After 3 the issue is structural — halt and report.
 
+## Terminology delta
+
+After convergence, emit a `Terminology Delta` when durable shared language
+changed. Durable means future agents or maintainers need the term to understand
+specs, code, commands, or user-facing docs. One-off phrasing, obvious generic
+programming terms, and speculative names are not persisted.
+
+Use this shape:
+
+```markdown
+## Terminology Delta
+
+- Term: <canonical term>
+  Definition: <short definition>
+  Aliases / rejected names: <optional>
+  Scope: global | <domain>
+  Used by: <spec/code/doc references>
+```
+
+Persistence rules:
+
+- Global SDD terms go to `docs/spec/context.md`.
+- Domain-specific terms go to `docs/spec/domains/<domain>/glossary.md`.
+- Non-SDD repositories may use root `context.md`.
+- Existing project convention wins when an equivalent file already exists.
+- Create the smallest file necessary; do not invent a documentation subsystem.
+
+## ADR discipline
+
+Record high-impact, difficult-to-reverse, or non-obvious decisions as Markdown
+ADRs. Default path: `docs/spec/adr/NNNN-short-title.md`. If the repo already
+uses `docs/adr/`, follow that convention. Number from the next zero-padded ADR;
+start at `0001` when none exist.
+
+An ADR requires:
+
+- `Status`
+- `Context`
+- `Decision`
+- `Consequences`
+- `Related`
+
+`Related` should include fully qualified `REQ` / `DES` ids and the job slug when
+applicable.
+
+Create an ADR when at least one strong trigger or two medium triggers apply.
+
+Strong triggers:
+
+- data, API, security, persistence, deployment, or workflow boundary change;
+- cross-domain architecture decision;
+- decision is hard to reverse or expensive to migrate;
+- future maintainers would likely find the code path surprising without context.
+
+Medium triggers:
+
+- external dependency responsibility split;
+- explicit performance vs maintainability trade-off;
+- naming/modeling choice that shapes multiple files or public docs;
+- deprecating an old workflow or rejecting a plausible alternative.
+
+If a decision is not ADR-worthy, record the rationale in `design.md` only.
+
 ## Tool workflow
 
 ### Bootstrap a brand-new domain
@@ -142,8 +234,9 @@ with one-sided dependency definitions.
 3. Call `spec_propose slug=<slug> summary=<one-line> domains=[...]`.
    The tool creates `docs/spec/jobs/<slug>/` with proposal.md and
    pre-stamped delta files (one REQ + one DES per declared domain).
-4. Run the four-phase grill against the delta files only. Domain trunks
-   are read-only during this phase.
+4. Run the context docs pass and four-phase grill against the delta files only.
+   Domain trunks are read-only during this phase except for explicitly approved
+   shared-language updates after convergence.
 5. When grill converges, send the job to `@oracle` for output review.
 6. Oracle on approval:
    - `spec_merge slug=<slug>` — distributes delta sections back to each
@@ -198,3 +291,10 @@ writer at output review.
 - Mixed-domain anchors written bare in a job delta (must be qualified).
 - Editing trunk during a grill round — go through jobs/.
 - More than 3 grill rounds.
+- Starting a codebase grill without reading existing context/glossary/ADR docs.
+- Re-explaining the same durable project term without persisting it.
+- Persisting one-off phrasing, speculative names, or generic programming terms
+  into shared language docs.
+- Hiding ADR-worthy trade-offs inside prose that future maintainers cannot find.
+- Creating a separate installed `grill-with-docs` skill or route shim instead of
+  upgrading `grill`'s codebase mode.

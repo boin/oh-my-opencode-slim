@@ -9,14 +9,14 @@ Bundled skills are grouped by the role they play in the V2 architecture, not by 
 | Class | Skills | Purpose |
 |-------|--------|---------|
 | V2 core workflow | `deepwork`, `oh-my-opencode-slim` | Support scheduler-first V2 execution and plugin self-maintenance. |
-| Workflow intelligence | `grill`, `brainstorming`, `using-git-worktrees`, `finishing-a-development-branch` | Encode repeatable engineering workflows that the Orchestrator can auto-detect and lazily load. These are not legacy merely because some were distilled from Superpowers. |
+| Workflow intelligence | `grill`, `brainstorming`, `using-git-worktrees`, `finishing-a-development-branch` | Encode repeatable engineering workflows that the Orchestrator can auto-detect and lazily load. `grill` is docs-aware in codebases: it maintains shared terminology and records ADR-worthy decisions while producing SDD specs. These are not legacy merely because some were distilled from Superpowers. |
 | Knowledge / tooling support | `simplify`, `codemap`, `clonedeps` | Add reusable capabilities for review, repository understanding, and dependency source inspection. |
 
 ## Fork-only skill rows
 
 | Skill | Description | Assigned to by default |
 |-------|-------------|----------------------|
-| `grill` | Self-interrogation workflow that produces SDD requirements + design under `docs/spec/` | `orchestrator` |
+| `grill` | Docs-aware self-interrogation workflow that produces SDD requirements/design under `docs/spec/`, maintains shared terminology, and records ADR-worthy decisions | `orchestrator` |
 | `brainstorming` | Fuzzy front-end ideation for non-SDD repos; hands off to `grill` in SDD repos | `orchestrator` |
 | `using-git-worktrees` | Create isolated worktrees for feature work; implements the orchestrator's worktree route | `orchestrator` |
 | `finishing-a-development-branch` | Plain-repo end-of-branch decisions (merge/PR/keep/discard); defers to `commit-readiness-batcher` in TTD/deployment contexts | `orchestrator` |

@@ -2,6 +2,7 @@
 import { doctor, parseDoctorArgs } from './doctor';
 import { install } from './install';
 import { getGeneratedPresetNames, isGeneratedPresetName } from './providers';
+import { parseStateRepairArgs, stateRepair } from './state-repair';
 import type {
   BackgroundSubagentsArg,
   BooleanArg,
@@ -70,6 +71,7 @@ oh-my-opencode-slim installer
 Usage:
   bunx oh-my-opencode-slim install [OPTIONS]
   bunx oh-my-opencode-slim doctor [OPTIONS]
+  bunx oh-my-opencode-slim state-repair [OPTIONS]
 
 Options:
   --skills=yes|no        Install bundled skills (default: yes)
@@ -88,6 +90,13 @@ Options:
 
 Doctor options:
   --json                 Print diagnostics as JSON
+
+State repair options:
+  --check-only           Inspect stale OpenCode running tool state only
+  --repair-safe          Back up DB and repair clearly stale running tool parts
+  --db=<path>            OpenCode sqlite DB path
+  --stale-after-ms=<ms>  Minimum running age to consider stale
+  --json                 Print result as JSON
 
 Available presets: ${getGeneratedPresetNames().join(', ')}
 
@@ -116,6 +125,10 @@ async function main(): Promise<void> {
   } else if (args[0] === 'doctor') {
     const doctorArgs = parseDoctorArgs(args.slice(1));
     const exitCode = await doctor(doctorArgs);
+    process.exit(exitCode);
+  } else if (args[0] === 'state-repair') {
+    const stateRepairArgs = parseStateRepairArgs(args.slice(1));
+    const exitCode = await stateRepair(stateRepairArgs);
     process.exit(exitCode);
   } else if (args[0] === '-h' || args[0] === '--help') {
     printHelp();

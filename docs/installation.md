@@ -251,6 +251,26 @@ If the installer reports that the configuration already exists, you have two opt
 
 3. Check that your provider is configured in `~/.config/opencode/opencode.json`
 
+### Stuck Running Tools or Blue Activity Dots
+
+After an abrupt process kill or service restart, OpenCode can retain stale
+`running` tool parts in `opencode.db`. Diagnose without writing the database:
+
+```bash
+bunx oh-my-opencode-slim@latest state-repair --check-only
+```
+
+For service pre-start automation, keep check-only as the default. Safe repair is
+explicit, creates a SQLite backup, skips interactive question/permission tools,
+and repairs stale task plus non-task running tool parts older than the threshold:
+
+```bash
+bunx oh-my-opencode-slim@latest state-repair --repair-safe --stale-after-ms=3600000
+```
+
+Do not automatically restart OpenCode while repairing the currently active
+conversation; repair first, then refresh or restart at a safe time.
+
 ### Missing Background Task Tools
 
 If background tasks never

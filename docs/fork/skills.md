@@ -18,7 +18,7 @@ Bundled skills are grouped by the role they play in the V2 architecture, not by 
 |-------|-------------|----------------------|
 | `grill` | Docs-aware self-interrogation workflow that produces SDD requirements/design under `docs/spec/`, maintains shared terminology, and records ADR-worthy decisions | `orchestrator` |
 | `brainstorming` | Fuzzy front-end ideation for non-SDD repos; hands off to `grill` in SDD repos | `orchestrator` |
-| `opencode-state-repair` | Local OpenCode state repair workflow for stale running subagent tasks, stuck blue notification dots, wrong project icons, and broken session records | `orchestrator` |
+| `opencode-state-repair` | Local OpenCode state repair workflow and `state-repair` CLI preflight for stale running subagent tasks/tools, stuck blue notification dots, wrong project icons, and broken session records | `orchestrator` |
 | `using-git-worktrees` | Create isolated worktrees for feature work; implements the orchestrator's worktree route | `orchestrator` |
 | `finishing-a-development-branch` | Plain-repo end-of-branch decisions (merge/PR/keep/discard); defers to `commit-readiness-batcher` in TTD/deployment contexts | `orchestrator` |
 

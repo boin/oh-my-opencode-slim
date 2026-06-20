@@ -74,7 +74,12 @@ nohup sh -c 'sleep 1; systemctl restart opencode.service' \
 3. Treat `/session/status` as the live runtime source. If it returns `{}` and a
    DB task part says `running`, the DB state is stale.
 4. Do not delete sessions or rows unless a narrower field repair is impossible.
-5. After DB repair, restart OpenCode or reload the UI so cached state rebuilds.
+5. When repairing the currently active conversation, do not automatically restart
+   OpenCode; repair the DB, verify, then ask the operator to refresh or open a
+   new session at a safe time. A service restart can collapse the active
+   conversation state.
+6. After DB repair for inactive sessions, restart OpenCode or reload the UI so
+   cached state rebuilds.
 
 Create a SQLite-level backup with Bun:
 
@@ -104,6 +109,37 @@ ps -eo pid,ppid,stat,etime,cmd | rg 'opencode attach|subagent|fixer|oracle|explo
 
 If no matching process exists and `/session/status` is `{}`, stale DB state is
 likely.
+
+### Find stale running tool parts
+
+First inspect every persisted tool part with `state.status = "running"`, not
+only `task` tools. Process kills can leave ordinary tools such as `bash`,
+`grep`, or `read` in a running state even after all task cards are repaired.
+
+```bash
+oh-my-opencode-slim state-repair --check-only
+```
+
+The command reports repairable stale running tool parts but exits zero in
+check-only mode so a diagnostic `ExecStartPre` does not block OpenCode startup.
+Use `--json` for machine-readable pre-start diagnostics.
+
+For manual DB inspection:
+
+```bash
+bun -e "import { Database } from 'bun:sqlite'; \
+const db=new Database('/root/.local/share/opencode/opencode.db',{readonly:true}); \
+const rows=db.query(\"select p.id,p.session_id,p.message_id,p.time_updated,p.data,s.title as session_title from part p left join session s on s.id=p.session_id where p.data like '%\\\"status\\\":\\\"running\\\"%' order by p.time_updated desc\").all(); \
+const running=[]; \
+for (const r of rows) { let d; try { d=JSON.parse(r.data); } catch { continue; } \
+if (d.type==='tool' && d.state?.status==='running') \
+running.push({part:r.id,tool:d.tool,parentSession:r.session_id,parentTitle:r.session_title,message:r.message_id,desc:d.state?.input?.description,child:d.state?.metadata?.sessionId,updated:r.time_updated}); } \
+console.log(JSON.stringify(running,null,2)); console.log('running_tool_count='+running.length);"
+```
+
+When a global scan is run from inside OpenCode, the currently executing scan can
+appear as a live running tool part. Do not repair the current in-flight command;
+use an age threshold and prefer session-scoped repair for active incidents.
 
 ### Find stale running task tool parts
 
@@ -164,6 +200,51 @@ curl -sS --max-time 2 http://localhost:${OPENCODE_PORT:-4096}/session/status
 nohup sh -c 'sleep 1; systemctl restart opencode.service' \
   >/tmp/opencode-state-repair-restart.log 2>&1 &
 ```
+
+## Pre-start check or safe repair
+
+The bundled CLI provides a pre-start-friendly state preflight. Default mode is
+check-only: it never writes the DB.
+
+```bash
+oh-my-opencode-slim state-repair --check-only
+```
+
+Safe repair is explicit. It creates a SQLite backup with `VACUUM INTO`, skips
+interactive `question` / `permission` tools, and repairs only tool parts older
+than the stale threshold.
+
+```bash
+oh-my-opencode-slim state-repair --repair-safe --stale-after-ms=3600000
+```
+
+Systemd pre-start examples:
+
+```ini
+# default-safe: diagnose only; does not block service startup
+ExecStartPre=/usr/bin/env OPENCODE_STATE_REPAIR_PRESTART=check oh-my-opencode-slim state-repair
+
+# opt-in: repair clearly stale persisted running tool parts before startup
+ExecStartPre=/usr/bin/env OPENCODE_STATE_REPAIR_PRESTART=safe oh-my-opencode-slim state-repair
+```
+
+Use `--repair-safe` / `OPENCODE_STATE_REPAIR_PRESTART=safe` only for startup
+preflight or inactive sessions. For the current active conversation, prefer
+manual session-scoped repair and do not restart OpenCode automatically.
+
+## Repair stale running non-task tool parts
+
+Use this when `/session/status` is `{}`, no child process remains, and a target
+session still has ordinary tool parts (`bash`, `grep`, `read`, etc.) stuck in
+`state.status = "running"`. Skip `question` tools unless the operator confirms
+the prompt is stale.
+
+```bash
+oh-my-opencode-slim state-repair --repair-safe --stale-after-ms=3600000
+```
+
+For an active incident, prefer a session-scoped manual repair rather than a
+global bulk repair.
 
 ## Repair a single known stale task
 
@@ -252,8 +333,11 @@ the session rather than editing the database.
 ## Final verification checklist
 
 - `running_count=0` for task tool parts unless a task is genuinely active.
+- `running_tool_count=0` for the target session unless a tool is genuinely
+  active; global scans may include the current repair command.
 - `/session/status` does not list repaired child sessions.
 - No matching `opencode attach` / subagent process remains.
 - `systemctl status opencode.service --no-pager` is active.
-- Browser/TUI refreshed after service restart.
+- Browser/TUI refreshed, or service restarted only when it is safe to collapse
+  the current session.
 - Repository worktree remains clean if no repo files were intentionally changed.

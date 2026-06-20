@@ -62,6 +62,13 @@ export const CUSTOM_SKILLS: CustomSkill[] = [
     sourcePath: 'src/fork/skills/brainstorming',
   },
   {
+    name: 'opencode-state-repair',
+    description:
+      'Repair local OpenCode state corruption such as stale running subagent tasks, stuck blue dots, wrong project icons, and broken session records',
+    allowedAgents: ['orchestrator'],
+    sourcePath: 'src/fork/skills/opencode-state-repair',
+  },
+  {
     name: 'using-git-worktrees',
     description: 'Use git worktrees for isolated feature work',
     allowedAgents: ['orchestrator'],

@@ -265,6 +265,9 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       multiplexerConfig,
       backgroundJobBoard,
     );
+    backgroundJobBoard.setTerminalStateListener((taskID) => {
+      void multiplexerSessionManager.retryDeferredIdleClose(taskID);
+    });
 
     // Initialize auto-update checker hook
     autoUpdateChecker = createAutoUpdateCheckerHook(ctx, {
@@ -417,6 +420,36 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   }
 
   companionManager.onLoad();
+
+  function resolveTuiVariantForModel(
+    agentName: string,
+    model: string,
+  ): string | undefined {
+    const configEntry = config.agents?.[agentName];
+    const defaultVariant =
+      typeof configEntry?.variant === 'string'
+        ? configEntry.variant
+        : undefined;
+    const chainMatches = modelArrayMap[agentName]?.filter(
+      (entry) => entry.id === model,
+    );
+    if (chainMatches) {
+      if (chainMatches.length === 1) {
+        return chainMatches[0].variant ?? defaultVariant;
+      }
+      return undefined;
+    }
+
+    if (
+      typeof configEntry?.model === 'string' &&
+      configEntry.model === model &&
+      defaultVariant
+    ) {
+      return defaultVariant;
+    }
+
+    return undefined;
+  }
 
   return {
     name: 'oh-my-opencode-slim',
@@ -630,6 +663,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       }
 
       const tuiAgentModels: Record<string, string> = {};
+      const tuiAgentVariants: Record<string, string> = {};
       for (const agentDef of agentDefs) {
         if (agentDef.name === 'councillor') continue;
 
@@ -644,10 +678,22 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
               : typeof agentDef.config.model === 'string'
                 ? agentDef.config.model
                 : undefined;
+        const resolvedVariant =
+          typeof entry?.variant === 'string'
+            ? entry.variant
+            : typeof agentDef.config.variant === 'string'
+              ? agentDef.config.variant
+              : undefined;
 
         tuiAgentModels[agentDef.name] = resolvedModel ?? 'default';
+        if (resolvedVariant) {
+          tuiAgentVariants[agentDef.name] = resolvedVariant;
+        }
       }
-      recordTuiAgentModels({ agentModels: tuiAgentModels });
+      recordTuiAgentModels({
+        agentModels: tuiAgentModels,
+        agentVariants: tuiAgentVariants,
+      });
 
       // Merge MCP configs
       const configMcp = opencodeConfig.mcp as
@@ -721,6 +767,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
             agent?: string;
             providerID?: string;
             modelID?: string;
+            model?: {
+              providerID?: string;
+              modelID?: string;
+            };
             sessionID?: string;
           };
           sessionID?: string;
@@ -732,14 +782,26 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       if (event.type === 'message.updated') {
         const info = event.properties?.info;
-        if (
-          typeof info?.agent === 'string' &&
-          typeof info.providerID === 'string' &&
-          typeof info.modelID === 'string'
-        ) {
+        const providerID =
+          typeof info?.providerID === 'string'
+            ? info.providerID
+            : typeof info?.model?.providerID === 'string'
+              ? info.model.providerID
+              : undefined;
+        const modelID =
+          typeof info?.modelID === 'string'
+            ? info.modelID
+            : typeof info?.model?.modelID === 'string'
+              ? info.model.modelID
+              : undefined;
+        if (typeof info?.agent === 'string' && providerID && modelID) {
+          const agentName = resolveRuntimeAgentName(config, info.agent);
+          const model = `${providerID}/${modelID}`;
+          const variant = resolveTuiVariantForModel(agentName, model);
           recordTuiAgentModel({
-            agentName: resolveRuntimeAgentName(config, info.agent),
-            model: `${info.providerID}/${info.modelID}`,
+            agentName,
+            model,
+            variant: variant ?? null,
           });
         }
       }

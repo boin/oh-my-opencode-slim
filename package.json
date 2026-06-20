@@ -1,6 +1,6 @@
 {
   "name": "oh-my-opencode-slim",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Lightweight agent orchestration plugin for OpenCode - a slimmed-down fork of oh-my-opencode",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -60,6 +60,7 @@
     "contributors:check": "all-contributors check",
     "contributors:generate": "all-contributors generate",
     "generate-schema": "bun run scripts/generate-schema.ts",
+    "sponsors": "sponsorkit",
     "verify:release": "bun run scripts/verify-release-artifact.ts",
     "verify:host-smoke": "bun run scripts/verify-opencode-host-smoke.ts",
     "typecheck": "tsc --noEmit",
@@ -96,6 +97,7 @@
     "@types/turndown": "^5.0.6",
     "all-contributors-cli": "^6.26.1",
     "bun-types": "1.3.12",
+    "sponsorkit": "^17.1.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
   },

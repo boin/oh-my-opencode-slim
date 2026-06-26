@@ -444,6 +444,74 @@ describe('interview manager - session registration', () => {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  test('clears fallback timer when last registered session is deleted', async () => {
+    const dashboardDir = await fs.mkdtemp('/tmp/manager-test-');
+    const clientDir = await fs.mkdtemp('/tmp/manager-test-');
+    const dashboardCtx = createMockContext({ directory: dashboardDir });
+    const clientCtx = createMockContext({ directory: clientDir });
+
+    const freePort = await findFreePort();
+    const config = createTestConfig({
+      port: freePort,
+      dashboard: true,
+    });
+
+    const originalSetInterval = globalThis.setInterval;
+    const originalClearInterval = globalThis.clearInterval;
+    const intervalHandles: Array<{ unref: ReturnType<typeof mock> }> = [];
+    const setIntervalSpy = mock(() => {
+      const handle = { unref: mock(() => {}) };
+      intervalHandles.push(handle);
+      return handle;
+    });
+    const clearIntervalSpy = mock(() => {});
+
+    try {
+      (globalThis as any).setInterval = setIntervalSpy;
+      (globalThis as any).clearInterval = clearIntervalSpy;
+
+      createInterviewManager(dashboardCtx, config);
+
+      // Wait for dashboard init
+      await new Promise((r) => setTimeout(r, 100));
+
+      const clientManager = createInterviewManager(clientCtx, config);
+
+      // Wait for client init to connect to the dashboard
+      await new Promise((r) => setTimeout(r, 100));
+
+      const output = { parts: [] as Array<{ type: string; text?: string }> };
+      await clientManager.handleCommandExecuteBefore(
+        {
+          command: 'interview',
+          sessionID: 'session-fallback-cleanup',
+          arguments: 'Fallback Cleanup Test',
+        },
+        output,
+      );
+
+      expect(intervalHandles.length).toBeGreaterThan(0);
+      const fallbackTimerHandle = intervalHandles.at(-1);
+      expect(fallbackTimerHandle).toBeDefined();
+
+      await clientManager.handleEvent({
+        event: {
+          type: 'session.deleted',
+          properties: { sessionID: 'session-fallback-cleanup' },
+        },
+      });
+
+      expect(clearIntervalSpy).toHaveBeenCalledTimes(1);
+      expect(clearIntervalSpy).toHaveBeenCalledWith(fallbackTimerHandle);
+      expect(fallbackTimerHandle?.unref).toHaveBeenCalledTimes(1);
+    } finally {
+      (globalThis as any).setInterval = originalSetInterval;
+      (globalThis as any).clearInterval = originalClearInterval;
+      await fs.rm(dashboardDir, { recursive: true, force: true });
+      await fs.rm(clientDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('interview manager - edge cases', () => {
@@ -638,6 +706,17 @@ describe('interview manager - integration with real dashboard', () => {
         `http://127.0.0.1:${freePort}/api/interviews/${interviewId1}/state?token=${auth?.token}`,
       );
       expect(state1Response.status).toBe(200);
+
+      // Trigger active event poll to register session2/interviewId2 explicitly in dashboard
+      await manager2.handleEvent({
+        event: {
+          type: 'session.status',
+          properties: {
+            sessionID: 'session-2',
+            status: { type: 'idle' },
+          },
+        },
+      });
 
       const state2Response = await fetch(
         `http://127.0.0.1:${freePort}/api/interviews/${interviewId2}/state?token=${auth?.token}`,

@@ -12,6 +12,10 @@
       "description": "Disable automatic installation of plugin updates when false. Defaults to true.",
       "type": "boolean"
     },
+    "compactSidebar": {
+      "description": "Render each agent on a single line in the TUI sidebar instead of the default multi-line layout. Default false.",
+      "type": "boolean"
+    },
     "presets": {
       "type": "object",
       "propertyNames": {
@@ -195,6 +199,20 @@
     },
     "disabled_mcps": {
       "description": "MCP server IDs to disable globally. Built-ins: websearch, context7, grep_app, codegraph.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "disabled_tools": {
+      "description": "Tool names to disable completely. Disabled tools are not registered with OpenCode and cannot be used by agents.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "disabled_skills": {
+      "description": "Skill names to disable completely. Disabled skills are not granted to agents, even when referenced by presets or agent overrides.",
       "type": "array",
       "items": {
         "type": "string"

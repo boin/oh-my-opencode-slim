@@ -309,6 +309,12 @@ export const PluginConfigSchema = z
       .describe(
         'Disable automatic installation of plugin updates when false. Defaults to true.',
       ),
+    compactSidebar: z
+      .boolean()
+      .optional()
+      .describe(
+        'Render each agent on a single line in the TUI sidebar instead of the default multi-line layout. Default false.',
+      ),
     presets: z.record(z.string(), PresetSchema).optional(),
     agents: z.record(z.string(), AgentOverrideConfigSchema).optional(),
     disabled_agents: z
@@ -325,6 +331,18 @@ export const PluginConfigSchema = z
       .optional()
       .describe(
         'MCP server IDs to disable globally. Built-ins: websearch, context7, grep_app, codegraph.',
+      ),
+    disabled_tools: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Tool names to disable completely. Disabled tools are not registered with OpenCode and cannot be used by agents.',
+      ),
+    disabled_skills: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Skill names to disable completely. Disabled skills are not granted to agents, even when referenced by presets or agent overrides.',
       ),
     // Multiplexer config (new unified config - preferred)
     multiplexer: MultiplexerConfigSchema.optional(),

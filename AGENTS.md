@@ -100,6 +100,13 @@ oh-my-opencode-slim/
 5. Run `bun test` to verify tests pass
 6. Commit changes
 
+## Fork Upstream Alignment
+
+This repository is an enhance-upstream fork. Before changing fork behavior,
+resolving upstream merge conflicts, or editing shared entry files such as
+`src/index.ts` or `src/agents/index.ts`, read and follow
+`docs/fork/upstream-alignment.md`.
+
 ## Release Workflow
 
 For plugin or Companion releases, follow `docs/release.md`. It documents the

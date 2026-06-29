@@ -401,15 +401,14 @@ describe('tool permissions', () => {
     expect(permission.cancel_task).toBe('deny');
   });
 
-  test('agent shorthand permission override is preserved', () => {
-    const agents = createAgents({
+  test('agent shorthand permission override is rejected by config schema', () => {
+    const invalidConfig: unknown = {
       agents: {
         fixer: { permission: 'ask' },
       },
-    });
+    };
 
-    const fixer = agents.find((a) => a.name === 'fixer');
-    expect(fixer?.config.permission).toBe('ask');
+    expect(() => PluginConfigSchema.parse(invalidConfig)).toThrow();
   });
 
   test('council agent is read-only except council_session', () => {

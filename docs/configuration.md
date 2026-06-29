@@ -144,12 +144,12 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `presets.<name>.<agent>.skills` | string[] | — | Skills the agent can use (`"*"`, `"!item"`, explicit list) |
 | `presets.<name>.<agent>.mcps` | string[] | — | MCPs the agent can use (`"*"`, `"!item"`, explicit list) |
 | `presets.<name>.<agent>.options` | object | — | Provider-specific model options passed to the AI SDK (e.g., `textVerbosity`, `thinking` budget) |
-| `presets.<name>.<agent>.permission` | object \| string | — | Tool-level permission rules enforced by the SDK. See [Agent Permissions](#agent-permissions) |
+| `presets.<name>.<agent>.permission` | object | — | Tool-level permission rules enforced by the SDK. See [Agent Permissions](#agent-permissions) |
 | `agents.<customAgent>.model` | string\|array | — | Required for custom agents inferred from unknown `agents` keys |
 | `agents.<customAgent>.prompt` | string | — | Full execution prompt for a custom agent |
 | `agents.<customAgent>.orchestratorPrompt` | string | — | Exact `@agent` block injected into the orchestrator prompt; must start with `@<agent-name>` |
 | `agents.<agent>.displayName` | string | — | Custom user-facing alias for the agent in the active config |
-| `agents.<agent>.permission` | object \| string | — | Tool-level permission rules enforced by the SDK. See [Agent Permissions](#agent-permissions) |
+| `agents.<agent>.permission` | object | — | Tool-level permission rules enforced by the SDK. See [Agent Permissions](#agent-permissions) |
 | `acpAgents.<name>.command` | string | — | Command for an external ACP-compatible agent; creates a wrapper subagent named `<name>` |
 | `acpAgents.<name>.args` | string[] | `[]` | Arguments for the ACP agent command |
 | `acpAgents.<name>.env` | object | `{}` | Extra environment variables for the ACP subprocess |
@@ -318,10 +318,10 @@ Notes:
 
 The `permission` field provides deterministic, tool-level permission restrictions on custom agents, built-in agent overrides, and presets. Unlike prompt instructions ("do not edit files"), these rules are enforced by the OpenCode SDK at the tool-call level.
 
-The field accepts either:
-
-1. **Shorthand string** — `"ask"`, `"allow"`, or `"deny"` applied to all tools
-2. **Object** — keys are tool names, values are `"ask" | "allow" | "deny"` or (for rule keys) a pattern-to-action map
+The field accepts an object whose keys are tool names. Values are
+`"ask" | "allow" | "deny"` or, for rule keys, a pattern-to-action map. The
+top-level shorthand string form is intentionally not supported here; use an
+object so plugin-generated skill and MCP gates can be merged predictably.
 
 **Example: read-only `planner` agent:**
 
@@ -398,7 +398,7 @@ When a user supplies `permission` and also uses the `skills` or `mcps` arrays on
 
 1. **User-supplied `permission` is the base layer.**
 2. **Plugin-generated rules from the `skills` array override `permission.skill`** — the `skills` array is authoritative for skill gating.
-3. **Plugin-generated rules from the `mcps` array set `permission.<mcp>_*` keys** — the `mcps` array is authoritative for MCP gating.
+3. **Plugin-generated rules from the `mcps` array fill missing `permission.<mcp>_*` keys** — explicit MCP-derived permission keys are preserved.
 4. **User-supplied keys for standard tools** (`edit`, `bash`, `webfetch`, `task`, etc.) survive the merge untouched.
 
 Use the `skills`/`mcps` arrays for skill and MCP gating. Use `permission` for everything else (file access, bash, web, task delegation).

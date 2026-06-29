@@ -89,10 +89,7 @@ const PermissionObjectSchema = z
   })
   .catchall(PermissionRuleSchema);
 
-export const PermissionConfigSchema = z.union([
-  PermissionActionSchema,
-  PermissionObjectSchema,
-]);
+export const PermissionConfigSchema = PermissionObjectSchema;
 
 // Agent override configuration (distinct from SDK's AgentConfig)
 export const AgentOverrideConfigSchema = z

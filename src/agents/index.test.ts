@@ -372,6 +372,46 @@ describe('tool permissions', () => {
     expect((fixer?.config.permission as any).cancel_task).toBe('deny');
   });
 
+  test('agent permission override is preserved and merged with defaults', () => {
+    const agents = createAgents({
+      agents: {
+        oracle: {
+          permission: {
+            edit: 'deny',
+            bash: {
+              '*': 'ask',
+              'git status*': 'allow',
+            },
+            webfetch: 'allow',
+          },
+        },
+      },
+    });
+
+    const oracle = agents.find((a) => a.name === 'oracle');
+    const permission = oracle?.config.permission as Record<string, unknown>;
+    expect(permission.edit).toBe('deny');
+    expect(permission.bash).toEqual({
+      '*': 'ask',
+      'git status*': 'allow',
+    });
+    expect(permission.webfetch).toBe('allow');
+    expect(permission.question).toBe('allow');
+    expect(permission.council_session).toBe('deny');
+    expect(permission.cancel_task).toBe('deny');
+  });
+
+  test('agent shorthand permission override is preserved', () => {
+    const agents = createAgents({
+      agents: {
+        fixer: { permission: 'ask' },
+      },
+    });
+
+    const fixer = agents.find((a) => a.name === 'fixer');
+    expect(fixer?.config.permission).toBe('ask');
+  });
+
   test('council agent is read-only except council_session', () => {
     const agents = createAgents({
       council: councilConfig(),

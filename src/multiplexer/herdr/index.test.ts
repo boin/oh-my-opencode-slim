@@ -12,6 +12,8 @@ type SpawnResult = {
 const crossSpawnMock = mock((_command: string[]) => createSpawnResult());
 
 mock.module('../../utils/logger', () => ({
+  getLogDir: mock(() => '/tmp/opencode-log'),
+  initLogger: mock(() => {}),
   log: mock(() => {}),
 }));
 

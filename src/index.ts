@@ -20,6 +20,9 @@ import { CouncilManager } from './council';
 import { createTodoHygieneHook, createTraceFreshnessHook } from './fork/hooks';
 import {
   createCodegraphCommandManager,
+  createPlanIntentHandoffHook,
+  createPlannerBridgeCommandManager,
+  createPlannerBridgeTools,
   createSpecTools,
   createTraceTool,
 } from './fork/tools';
@@ -161,6 +164,10 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let interviewManager: ReturnType<typeof createInterviewManager>;
   let presetManager: ReturnType<typeof createPresetManager>;
   let codegraphCommandManager: ReturnType<typeof createCodegraphCommandManager>;
+  let planIntentHandoffHook: ReturnType<typeof createPlanIntentHandoffHook>;
+  let plannerBridgeCommandManager: ReturnType<
+    typeof createPlannerBridgeCommandManager
+  >;
   let companionManager: CompanionManager;
   let councilTools: ReturnType<typeof createCouncilTool>;
   let cancelTaskTools: ReturnType<typeof createCancelTaskTool>;
@@ -335,6 +342,8 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     interviewManager = createInterviewManager(ctx, config);
     presetManager = createPresetManager(ctx, config);
     codegraphCommandManager = createCodegraphCommandManager(ctx);
+    planIntentHandoffHook = createPlanIntentHandoffHook(ctx);
+    plannerBridgeCommandManager = createPlannerBridgeCommandManager(ctx);
     companionManager = new CompanionManager(
       `proc_${process.pid}`,
       ctx.directory,
@@ -351,6 +360,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       ...councilTools,
       ...createTraceTool(ctx),
       ...createSpecTools(ctx),
+      ...createPlannerBridgeTools(ctx),
       ...cancelTaskTools,
       ...acpRunTools,
       webfetch,
@@ -764,6 +774,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       reflectCommandHook.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
       codegraphCommandManager.registerCommand(opencodeConfig);
+      plannerBridgeCommandManager.registerCommand(opencodeConfig);
     },
 
     event: async (input) => {
@@ -965,6 +976,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         output as { parts: Array<{ type: string; text?: string }> },
       );
 
+      await plannerBridgeCommandManager.handleCommandExecuteBefore(
+        input as {
+          command: string;
+          sessionID: string;
+          arguments: string;
+        },
+        output as { parts: Array<{ type: string; text?: string }> },
+      );
+
       await deepworkCommandHook.handleCommandExecuteBefore(
         input as {
           command: string;
@@ -1104,6 +1124,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         input,
         { messages },
       );
+      planIntentHandoffHook.handleMessagesTransform({ messages });
       todoHygieneHook.handleMessagesTransform({ messages });
       await phaseReminderHook['experimental.chat.messages.transform'](input, {
         messages,

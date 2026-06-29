@@ -1415,3 +1415,116 @@ tests when practical:
 ```bash
 bun test src/cli/skills.test.ts src/cli/providers.test.ts
 ```
+
+## sdd-workflow/DES-29: Plan detection and import command surface
+
+Rationale anchor: sdd-workflow/REQ-31.
+
+Implement a fork-local command manager for durable plan operations and wire it
+through the existing command hook pipeline in `src/index.ts`.
+
+Command surface:
+
+```text
+/plan-save [--path <path>] [--title <title>]
+/plan-read [path]
+/plan-list
+/plan-to-sdd [path] [--slug <slug>] [--domain <domain>]
+/sdd-plan-detect
+/sdd-from-plan <path> [--slug <slug>] [--domain <domain>]
+```
+
+Behavior:
+
+1. `/plan-save` asks the active agent to write or replace a complete markdown
+   plan. When no explicit path is provided, the default path is
+   `.opencode/plans/<session-id>.md`.
+2. `/plan-read` reads the current session plan or the explicit path without
+   writing files.
+3. `/plan-list` and `/sdd-plan-detect` scan only local markdown plan candidates and report
+   metadata. It must not import or execute anything.
+4. `/plan-to-sdd [path]` imports the current session plan by default;
+   `/sdd-from-plan <path>` imports an explicit markdown path. Both compute a
+   SHA-256 fingerprint, searches `docs/spec/jobs/*/proposal.md` and
+   `docs/spec/archive/*/proposal.md` for an existing import, and refuses to
+   duplicate an already-imported plan.
+5. When no duplicate exists, the command creates a native SDD job under
+   `docs/spec/jobs/<slug>/` using the existing spec layout: `proposal.md`,
+   `delta-requirements.md`, `delta-design.md`, `tasks.md`, and `trace.md`.
+6. The generated job records imported-plan metadata in `proposal.md` and
+   includes task-package gates in `tasks.md`; it does not mark execution ready.
+7. The bridge reports the next native action: review the generated SDD job,
+   pass `Task Package Review`, authorize `Execution Readiness`, then run the
+   normal apply/verify flow.
+
+Candidate detection:
+
+- Prefer explicit user paths over auto-detected files.
+- Auto-detection may inspect project-local markdown names and
+  `.opencode/plans/*.md`, but it returns candidates only.
+- Candidate output includes path, heading, hash prefix, modified time, likely
+  source, review status (`approved`, `unverified`, `draft`, `unknown`), and any
+  matching open/archive SDD job.
+
+Implementation constraints:
+
+- The bridge consumes markdown files only; it does not import planner plugin
+  code, call external planner tools, open browsers, or open external editors.
+- Plan identity is the SHA-256 of the imported markdown content.
+- Completed state is represented by native archive presence, not upstream
+  planner state.
+
+Suggested files:
+
+- `src/fork/tools/planner-bridge/command.ts` for command parsing, detection,
+  import, duplicate checks, and output formatting.
+- `src/fork/tools/planner-bridge/command.test.ts` for duplicate detection,
+  explicit import, and detect-only behavior.
+- `src/fork/tools/index.ts` and `src/index.ts` for command registration and
+  execution hook wiring.
+- `README.md` and `docs/configuration.md` for durable plan guidance.
+
+## sdd-workflow/DES-30: Durable plan lifecycle and natural handoff
+
+Rationale anchor: sdd-workflow/REQ-32.
+
+Extend the durable plan bridge with lifecycle commands and a message-transform
+handoff hook.
+
+Command and tool surface:
+
+```text
+/plan-ready [--auto] [--slug <slug>] [--domain <domain>]
+/plan-finish --status <executing|done|abandoned|superseded|imported> [path]
+```
+
+Lifecycle states:
+
+```text
+draft → ready → imported → done
+draft → ready → executing → done
+draft/ready → abandoned
+draft/ready → superseded
+```
+
+Implementation behavior:
+
+1. `plan_ready` reads `.opencode/plans/<session-id>.md`, performs a conservative
+   readiness check, and returns one of `blocked`, `needs-sdd`, or
+   `direct-execution`.
+2. `plan_finish` writes lifecycle metadata into the markdown frontmatter and
+   archives active plans under `.opencode/plans/archive/` for consumed states.
+3. `plan_to_sdd` archives the active current-session plan as `imported` after a
+   successful native SDD import.
+4. The natural handoff hook inspects the latest orchestrator user message. Short
+   phrases such as "开干" and "开始实现" inject an internal instruction to call
+   `plan_ready`; abandon and complete phrases inject the corresponding lifecycle
+   guidance.
+5. The hook refuses to trigger when no current-session plan exists, when the
+   message is a question/conditional, or when another agent is active.
+6. Every lifecycle transition reports a concise `Plan automation:` block with
+   intent, plan path, action, state transition, archive path, and next action.
+
+The hook is advisory: it does not edit source files and does not force a runtime
+agent switch. Orchestrator still owns the final implementation route and must
+verify before marking a plan `done`.

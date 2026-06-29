@@ -21,6 +21,11 @@ Run the interactive installer:
 bunx oh-my-opencode-slim@latest install
 ```
 
+This is enough for native SDD and durable planning. `oh-my-opencode-slim` can
+save markdown plans and create native `docs/spec/jobs/<slug>/` workflows without
+external planner plugins, browser review UIs, external editors, or external
+planner runtimes.
+
 Or use non-interactive mode:
 
 ```bash
@@ -40,6 +45,24 @@ The installer supports the following options:
 | `--no-tui` | Non-interactive mode |
 | `--dry-run` | Simulate install without writing files |
 | `--reset` | Force overwrite of existing configuration |
+
+### Durable Plan Workflow
+
+Durable planning is headless by default:
+
+- `/plan-save` writes or updates `.opencode/plans/<session-id>.md` unless an
+  explicit markdown path is provided.
+- `/plan-read` reads the current saved plan.
+- `/plan-list` reports local markdown plans and writes nothing.
+- `/plan-ready` checks whether the current plan should enter SDD or direct
+  execution.
+- `/plan-finish` closes or archives consumed plans.
+- `/plan-to-sdd [path]` imports the current or chosen markdown plan into a
+  native `docs/spec/jobs/<slug>/` job.
+- `/sdd-from-plan <path>` remains available for explicit markdown imports.
+
+Once imported, the native SDD job becomes the source of truth for execution. The
+MVP never auto-executes saved, detected, or imported plans.
 
 ### Background Subagents Environment Setup
 

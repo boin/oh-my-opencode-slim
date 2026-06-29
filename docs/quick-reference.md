@@ -18,6 +18,7 @@
 | [Multiplexer Integration](multiplexer-integration.md) | Real-time pane monitoring, layouts, troubleshooting |
 | [Preset Switching](preset-switching.md) | `/preset` command for runtime agent model switching |
 | [Codemap Skill](codemap.md) | Hierarchical codemap generation |
+| Durable plans + SDD | `/plan-save`, `/plan-ready`, `/plan-finish`, and `/plan-to-sdd` provide headless markdown planning, lifecycle cleanup, natural handoff, and native SDD import |
 
 ## ⚙️ Config & Reference
 

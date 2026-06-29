@@ -625,3 +625,61 @@ adequate SDD job or spec already exists, the workflow proceeds to execution
 gates. If the change is non-trivial and lacks adequate spec material, `grill`
 opens or completes a spec job before implementation unless the user explicitly
 skips SDD. Minor bounded changes remain eligible for the existing SDD exemption.
+
+## sdd-workflow/REQ-31: Durable plan bridge
+
+The fork MUST support a headless durable-plan bridge into the native two-tier
+SDD workflow without requiring browser review plugins, external editors, or
+external planner runtimes.
+
+The bridge MUST:
+
+- save or replace a markdown plan on disk;
+- keep a stable default plan path for the current OpenCode session;
+- allow continued chat-based updates to the same markdown plan;
+- detect candidate markdown plans without modifying source files;
+- import an explicit plan path into `docs/spec/jobs/<slug>/` as the active
+  execution contract;
+- record source path, SHA-256 fingerprint, review status, and import timestamp;
+- check open jobs and archived jobs for the same fingerprint before creating a
+  new job;
+- treat upstream approval as input metadata only, not as native execution
+  readiness.
+
+The bridge MUST NOT:
+
+- directly call or depend on external planner tool schemas, external editor
+  handoff, browser UI, or third-party planner state;
+- auto-select among multiple candidates without user confirmation;
+- auto-execute imported plans;
+- create or depend on `.spec/*` files.
+
+## sdd-workflow/REQ-32: Durable plan lifecycle automation
+
+The fork MUST support natural-language handoff from durable plan mode into
+execution without requiring the user to manually choose an agent or remember
+slash commands.
+
+The lifecycle automation MUST:
+
+- detect short implementation intents such as "开干", "开始落地", "开始实现",
+  "开始执行", and "按这个做" only when a current-session durable plan exists;
+- run a readiness decision before implementation handoff;
+- distinguish plans that require native SDD from low-risk plans that can proceed
+  by direct Orchestrator execution;
+- require direct-execution plans to be marked `executing` and archived before
+  file edits begin;
+- mark imported plans as `imported` and archive the active plan after successful
+  SDD import;
+- keep `done` tied to validation evidence rather than user intent alone;
+- leave no stale active plan after import, direct-execution handoff, abandon, or
+  supersede actions;
+- show a concise "Plan automation" status block whenever an automatic handoff or
+  lifecycle transition occurs.
+
+The lifecycle automation MUST NOT:
+
+- trigger on questions, conditionals, or long discussion messages;
+- auto-select among multiple active plan candidates;
+- directly edit source files from the natural-language trigger itself;
+- mark a plan `done` without positive validation evidence.

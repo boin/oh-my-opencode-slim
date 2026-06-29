@@ -2,6 +2,9 @@
 
 export {
   createCodegraphCommandManager,
+  createPlanIntentHandoffHook,
+  createPlannerBridgeCommandManager,
+  createPlannerBridgeTools,
   createSpecTools,
   createTraceTool,
 } from '../fork/tools';

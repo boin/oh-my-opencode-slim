@@ -87,6 +87,11 @@ bunx oh-my-opencode-slim@latest install
 
 The installer generates both OpenAI and OpenCode Go presets, with OpenAI active by default.
 
+Minimal native SDD and durable planning work with `oh-my-opencode-slim` alone.
+You do not need a browser review plugin, an external editor, or any external
+planner runtime to save plans and import them into native SDD jobs under
+`docs/spec/jobs/<slug>/`.
+
 To make OpenCode Go active during install, run `bunx oh-my-opencode-slim@latest install --preset=opencode-go` or change the default preset name in `~/.config/opencode/oh-my-opencode-slim.json` after installation.
 
 Then:
@@ -291,6 +296,35 @@ orchestration, and recurring workflow friction.
 
 See **[Skills](docs/skills.md#oh-my-opencode-slim)** for examples and safety
 rules.
+
+#### Durable Plans and Native SDD
+
+Native SDD is built into this fork: `oh-my-opencode-slim` can save durable
+markdown plans and import them into the local `docs/spec/` domain/job workflow
+without any external planner runtime.
+
+Use durable plan commands explicitly:
+
+- `/plan-save` asks the agent to write or update the current markdown plan.
+  The default path is `.opencode/plans/<session-id>.md`.
+- `/plan-read` reads the current durable plan.
+- `/plan-list` lists local markdown plan candidates without writing files.
+- `/plan-ready` checks whether the current plan should go through native SDD or
+  direct Orchestrator execution.
+- `/plan-finish` closes a consumed plan as `executing`, `imported`, `done`,
+  `abandoned`, or `superseded`.
+- `/plan-to-sdd [path]` imports the current or specified markdown plan into a
+  native `docs/spec/jobs/<slug>/` job.
+- `/sdd-from-plan <path>` remains available for explicit markdown imports.
+
+Short natural-language intents such as “开干”, “开始落地”, and “开始实现” trigger
+the same readiness handoff when a current-session durable plan exists. The hook
+does not edit code itself; it injects guidance for the Orchestrator to run
+`plan_ready`, then either import SDD or mark the plan `executing` before direct
+implementation.
+
+After import, the native SDD job is the source of truth for execution. The MVP
+never auto-executes detected, saved, or imported plans.
 
 ---
 
@@ -655,6 +689,7 @@ Use this section as a map: start with installation, then jump to features, confi
 | **[Preset Switching](docs/preset-switching.md)** | Switch agent model presets at runtime with `/preset` |
 | **[Interview](docs/interview.md)** | Turn rough ideas into a structured markdown spec through a browser-based Q&A flow |
 | **[Companion](docs/companion.md)** | Floating window companion for parsing, help, and types |
+| **Durable plans + SDD** | Headless markdown plan persistence with explicit native SDD import |
 
 ### ⚙️ Config & Reference
 

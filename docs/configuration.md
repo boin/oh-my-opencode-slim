@@ -30,6 +30,41 @@ If OmO-slim detects an invalid plugin config for the current project, the TUI si
 
 ---
 
+## Durable Plan Workflow
+
+`oh-my-opencode-slim` supports native SDD and durable planning without any
+companion plugin. The minimal setup is just this plugin plus its normal
+`docs/spec/` domain/job workflow.
+
+Durable plan commands keep planning headless and recoverable:
+
+- `/plan-save` writes or replaces `.opencode/plans/<session-id>.md` unless a
+  path is provided.
+- `/plan-read` returns the current durable markdown plan.
+- `/plan-list` is read-only candidate detection for local markdown plans.
+- `/plan-ready` checks whether the current plan should enter native SDD or
+  direct Orchestrator execution.
+- `/plan-finish` archives consumed plans with lifecycle state.
+- `/plan-to-sdd [path]` imports the current or specified plan into
+  `docs/spec/jobs/<slug>/`.
+
+Natural language shortcuts such as “开干”, “开始落地”, and “开始实现” are mapped to
+`plan_ready` only when a current-session plan exists and the message is a short
+imperative rather than a question. Side-effecting transitions are reported with a
+`Plan automation:` status block.
+
+Native SDD remains the execution authority:
+
+- `/sdd-from-plan <path>` explicitly imports a markdown plan into
+  `docs/spec/jobs/<slug>/`.
+- After import, the native SDD job is the source of truth for task execution,
+  trace/archive state, and review gates.
+- Saved, detected, or imported plans are never auto-executed in the MVP.
+- This fork reads and writes markdown only; it does not depend on browser review
+  plugins, external editors, browser review UIs, or external planner runtimes.
+
+---
+
 ## Prompt Overriding
 
 Customize agent prompts without modifying source code. Create markdown files in `~/.config/opencode/oh-my-opencode-slim/`:

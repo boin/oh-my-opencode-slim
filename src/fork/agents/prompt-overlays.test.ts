@@ -30,8 +30,17 @@ describe('fork agent prompt overlays', () => {
     expect(configs.designer.prompt).toContain(
       'Contract-first Human-facing Synthesis',
     );
+    expect(configs.designer.prompt).toContain('lightweight UI note');
+    expect(configs.designer.prompt).toContain('existing-design work');
+    expect(configs.designer.prompt).toContain(
+      'new/changed interaction or missing design requires',
+    );
     expect(configs.fixer.prompt).toContain('Task Package Review');
+    expect(configs.fixer.prompt).toContain('copy/cosmetic work');
+    expect(configs.fixer.prompt).toContain('existing-design work');
     expect(configs.oracle.prompt).toContain('Output Review Anti-Shell Gate');
+    expect(configs.oracle.prompt).toContain('selected gate is correct');
+    expect(configs.oracle.prompt).toContain('lightweight UI note');
   });
 
   test('does not force overlays onto replacement custom prompts', () => {

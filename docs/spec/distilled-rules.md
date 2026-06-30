@@ -14,8 +14,11 @@ runtime-load the plugin.
 
 ## TDD discipline
 
-For every code-producing task that is not exempted, run TDD as three
-sequential background specialist tasks. Do not collapse them.
+For every behavior-changing code task that is not exempted, keep TDD ordering:
+red → green → refactor. Background task splitting is proportional, not
+mandatory: reserve three sequential background specialist tasks for high-risk,
+broad, cross-module, or test-design-heavy work. Minor or known-small work may
+run the same loop inline.
 
 1. **Red** — `@fixer` writes the smallest failing test that pins the next
    behavior. Run the test. The task returns only when the test fails for
@@ -35,10 +38,13 @@ Hard rules:
 - One behavior per cycle. If a task implies N behaviors, run N cycles.
 
 Exemptions (orchestrator decides, no specialist task needed to confirm):
+- Docs-only, spec-only, copy-only, generated refreshes, and mechanical
+  no-behavior edits do not require TDD; use relevant verification instead.
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes explicitly tagged `exploratory`.
-- Test infrastructure absent — run a one-shot "build infra" background task first,
-  record outcome in `design.md` § Test infrastructure, then resume TDD.
+- Test infrastructure absent — assess/build infra only if the behavior deserves
+  tests; otherwise document constrained verification and use another evidence
+  path.
 
 ---
 
@@ -74,8 +80,10 @@ Before declaring a task done, gather positive evidence. Self-assessment
 Required evidence depends on task type:
 - **Code change** — relevant tests run and passed; type check or linter clean
   on touched files.
-- **Refactor** — full test suite green; behavior unchanged confirmed by tests
-  that existed before the refactor.
+- **Refactor** — verification scales to blast radius: targeted tests for local
+  refactors, package/full relevant suites for shared utilities, exported APIs,
+  or cross-module refactors; behavior unchanged confirmed by tests that existed
+  before the refactor.
 - **Spec / docs edit** — referenced files exist; cross-links resolve; trace
   remains consistent if `trace.md` is present.
 - **Specialist task completion** — the task's stated exit condition is
@@ -102,8 +110,11 @@ delegation.
 Gate order:
 
 1. Author or update `docs/spec/jobs/<slug>/tasks.md`.
-2. Pass mandatory `@oracle` task-package review.
-3. Present execution readiness to the user and record authorization.
+2. Pass local structural check for a single bounded low-risk task, or `@oracle`
+   task-package review for ambiguous, multi-task, multi-writer,
+   boundary-crossing, or design-gap work.
+3. Present execution readiness to the user and record authorization when not
+   already explicitly authorized; re-authorize if scope or risk changes.
 4. Delegate only complete task packages to write-capable specialists.
 5. Inspect completion evidence before marking any task `complete`.
 
@@ -126,7 +137,9 @@ Role boundaries:
 - `@fixer` consumes task packages, implements bounded scope, and reports
   completion evidence. It must not derive task boundaries from broad `REQ/DES`
   sections and must not mark task status as `complete`.
-- `@oracle` reviews task packages and output evidence. It remains read-only.
+- `@oracle` reviews task packages and output evidence. It remains read-only and
+  does not run `spec_merge` / `spec_archive`; the orchestrator performs spec
+  state writes after review pass and user authorization.
 
 Anti-shell hard failures:
 

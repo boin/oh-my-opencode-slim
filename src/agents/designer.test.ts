@@ -10,7 +10,7 @@ describe('designer SDD handoff contract', () => {
 
     expect(prompt).toContain('contract-first');
     expect(prompt).toContain('UI / Interaction Handoff Contract');
-    expect(prompt).toContain('Human-deliverable');
+    expect(prompt).toContain('human-deliverable');
     expect(prompt).toContain('Reference levels');
     expect(prompt).toContain('Level 1 Inspired');
     expect(prompt).toContain('Level 2 Close Reference');

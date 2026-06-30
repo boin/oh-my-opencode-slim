@@ -40,7 +40,9 @@ describe('append-prompt', () => {
   test('includes memex read/write contract', () => {
     const block = buildSddTddAppendBlock();
     expect(block).toContain('recall_memories');
-    expect(block).toContain('save_memory');
+    expect(block).toContain('proposes review lessons');
+    expect(block).toContain('explicit lesson');
+    expect(block).toContain('orchestrator decides whether to save');
   });
 
   test('mentions trace_regenerate tool by name', () => {
@@ -68,18 +70,18 @@ describe('append-prompt', () => {
     expect(block).toContain('Anti-Shell Rules');
 
     expect(block).toContain('Task Package Review.Status: passed');
-    expect(block).toContain('mandatory task-package review');
+    expect(block).toContain('local structural pass');
+    expect(block).toContain('high-risk, ambiguous, multi-task');
     expect(block).toContain('Execution Readiness.Status: authorized');
-    expect(block).toContain('authorization gate');
+    expect(block).toContain('re-authorize if scope or risk changes');
 
     expect(block).toContain('anti-shell review');
     expect(block).toContain('stub');
     expect(block).toContain('placeholder');
     expect(block).toContain('fixture-only');
 
-    expect(block).toContain(
-      'Trivial direct edits remain allowed and do not require a task package.',
-    );
+    expect(block).toContain('Trivial direct edits');
+    expect(block).toContain('do not require a task package');
   });
 
   test('includes Design Synthesis Gate for human-facing work', () => {
@@ -89,7 +91,9 @@ describe('append-prompt', () => {
     expect(block).toContain('Human-facing: yes | no | partial');
     expect(block).toContain('one short clarification question');
     expect(block).toContain('agent team owns UX synthesis');
-    expect(block).toContain('UI / Interaction Handoff Contract');
+    expect(block).toContain('Cosmetic/copy-only human-facing work');
+    expect(block).toContain('design implementation');
+    expect(block).toMatch(/UI \/\s+Interaction Handoff Contract/);
     expect(block).toContain('Design Handoff Review');
     expect(block).toContain('Red Strategy');
     expect(block).toMatch(/reference|Level 3/);
@@ -98,7 +102,7 @@ describe('append-prompt', () => {
   test('includes minor bounded change exemption wording', () => {
     const block = buildSddTddAppendBlock();
 
-    expect(block).toContain('Minor bounded changes');
+    expect(block).toContain('Fast Path');
     expect(block).toMatch(/skip[^.]*spec_propose/i);
     expect(block).toMatch(/skip[^.]*task package/i);
     expect(block).toMatch(/skip[^.]*Design Handoff Review/i);
@@ -107,9 +111,11 @@ describe('append-prompt', () => {
   test('keeps full SDD fallback for unsafe minor bounded changes', () => {
     const block = buildSddTddAppendBlock();
 
-    expect(block).toMatch(/high-risk[^.]*full SDD/i);
-    expect(block).toMatch(/ambiguous[^.]*full SDD/i);
-    expect(block).toMatch(/boundar(?:y|ies)[^.]*full SDD/i);
+    expect(block).toContain('Full SDD');
+    expect(block).toContain('high-risk');
+    expect(block).toContain('ambiguous');
+    expect(block).toContain('boundary-crossing');
+    expect(block).toContain('Strong disqualifiers override Fast Path');
   });
 
   test('does not hard-code all new behavior as full SDD', () => {
@@ -131,6 +137,41 @@ describe('append-prompt', () => {
     expect(block).toContain('compact evidence');
     expect(block).toContain('Verify child outputs proportionally to risk');
     expect(block).toContain('Inline TDD is allowed');
+  });
+
+  test('includes lightweight SDD risk gate and tie-breaker', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Lightweight SDD');
+    expect(block).toContain('SDD Mode: lightweight');
+    expect(block).toContain('Risk Gate: local structural pass');
+    expect(block).toContain('Mechanical checks');
+    expect(block).toContain('Judgment checks');
+    expect(block).toContain('Strong disqualifiers override Fast Path');
+    expect(block).toContain('escalate one level only');
+  });
+
+  test('keeps oracle review read-only and merge authorized by user', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('returns a read-only verdict');
+    expect(block).toContain('Full SDD risk triggers');
+    expect(block).toContain('Low-risk Lightweight SDD may skip');
+    expect(block).toContain('orchestrator calls');
+    expect(block).toContain('`spec_merge slug=<slug>`');
+    expect(block).toContain('user authorized implementation-to-');
+    expect(block).toMatch(
+      /planning\/review-only\s+requests stop at merge-ready/,
+    );
+  });
+
+  test('does not retain old mandatory heavy-gate wording', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).not.toContain('Do not collapse them');
+    expect(block).not.toContain('@oracle MUST also');
+    expect(block).not.toContain('@oracle is the sole writer');
+    expect(block).not.toContain('mandatory task-package review');
   });
 
   test('keeps user-facing output concise by default', () => {

@@ -73,6 +73,9 @@ Default path. Open a job when introducing or changing behavior. Reasons:
 
 - Trivial change (typo, one-line fix, single bounded edit < 20 lines).
 - Pure execution work where the user explicitly skips spec.
+- Existing/open/imported SDD job with adequate goal, boundaries, affected
+  domains, acceptance, and known risks. Normalize it into deltas/task packages
+  instead of running a full grill.
 
 User approval phrases such as "方案没有问题了，可以开始实现了", "go ahead", or
 "looks good, implement it" are implementation authorization signals, not
@@ -80,6 +83,21 @@ automatic SDD-start signals. If adequate SDD material already exists, continue t
 execution gates. If the change is non-trivial and lacks adequate spec material,
 open or complete a grill job before implementation unless the user explicitly
 skips SDD. Minor bounded changes still use the normal exemption.
+
+## Spec material adequacy check
+
+Before starting the four phases, decide whether grill is necessary:
+
+- **Adequate** — existing material names the goal, boundaries, affected domains,
+  acceptance, and known risks. Skip grill and normalize into deltas/task
+  packages.
+- **Partial** — only targeted grill questions for the missing fields.
+- **Inadequate** — run the full four-phase grill.
+
+An existing/open/imported job is only a candidate for lightweight continuation.
+It must still match the current user request, target the correct domain(s), have
+resolvable anchors, fresh trace, no contradiction with domain trunks, and
+acceptance that still reflects the current goal.
 
 ## Domain naming discipline
 
@@ -237,13 +255,18 @@ If a decision is not ADR-worthy, record the rationale in `design.md` only.
 4. Run the context docs pass and four-phase grill against the delta files only.
    Domain trunks are read-only during this phase except for explicitly approved
    shared-language updates after convergence.
-5. When grill converges, send the job to `@oracle` for output review.
-6. Oracle on approval:
+5. When grill converges, send the job to `@oracle` for output review only when
+   risk, drift, ambiguity, design gaps, multi-writer scope, or user request
+   requires it. Otherwise use local completion evidence and anti-shell checks.
+6. On approval or local pass, the orchestrator — not oracle — runs:
    - `spec_merge slug=<slug>` — distributes delta sections back to each
      target domain trunk, refuses on ID collision, regenerates affected
      domain traces and the job trace.
    - `spec_archive slug=<slug>` — moves the whole job dir to
      `docs/spec/archive/YYYY-MM-DD-<slug>/`. Atomic.
+
+   Only merge/archive when the user authorized implementation-to-merge. For
+   planning/review-only requests, stop at merge-ready.
 
 ### Slug naming
 
@@ -276,8 +299,9 @@ moves trunk into `domains/<name>/`, moves `changes/<slug>/` into
 Before starting grill: `recall_memories` with project tag + topic. Inject
 top 3-5 into phase-1 assumptions as `A-prior-N: <lesson>`.
 
-After convergence: do NOT save memories yourself. @oracle is the sole
-writer at output review.
+After convergence: @oracle proposes explicit pitfall/pattern lesson candidates
+at output review; the orchestrator decides whether to save them. Memory write
+availability must not block spec merge/archive.
 
 ## Anti-patterns
 

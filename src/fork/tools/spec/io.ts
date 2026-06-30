@@ -74,7 +74,7 @@ function taskBootstrap(slug: string): string {
 
 This file is the job-local execution contract. For spec-backed non-trivial SDD
 jobs, implementation MUST NOT be delegated until task packages are authored and
-mandatory task-package review passes.
+the selected review gate passes.
 
 ## Task Package Review
 
@@ -82,11 +82,12 @@ Status: pending
 Reviewer: (not reviewed)
 Human-facing: yes | no | partial
 
-For Human-facing: yes | partial, complete Design Handoff Review before
-implementation delegation and include a UI / Interaction Handoff Contract.
-The contract must cover product behavior, interaction flow, state lifecycle,
-copy semantics, validation strategy, visual reference level when relevant, and
-Red Strategy.
+Human-facing gate: copy/cosmetic work may use a lightweight UI note;
+existing-design work must cite its reference or pattern; new/changed
+interaction or missing design requires Design Handoff Review plus a UI /
+Interaction Handoff Contract before implementation delegation. Full contracts
+cover product behavior, interaction flow, state lifecycle, copy semantics,
+validation strategy, visual reference level when relevant, and Red Strategy.
 
 ## Execution Readiness
 

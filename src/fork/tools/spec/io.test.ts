@@ -106,9 +106,12 @@ describe('spec/io (job-scoped)', () => {
       expect(tasks).toContain('Owner: orchestrator');
       expect(tasks).toContain('Execution Readiness');
       expect(tasks).toContain('Human-facing: yes | no | partial');
+      expect(tasks).toContain('lightweight UI note');
+      expect(tasks).toContain('existing-design work');
       expect(tasks).toContain('Design Handoff Review');
-      expect(tasks).toContain('UI / Interaction Handoff Contract');
+      expect(tasks).toMatch(/UI \/\s+Interaction Handoff Contract/);
       expect(tasks).toContain('Red Strategy');
+      expect(tasks).not.toContain('mandatory task-package review');
     });
 
     test('refuses on slug collision', () => {

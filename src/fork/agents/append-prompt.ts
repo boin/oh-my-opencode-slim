@@ -7,43 +7,73 @@ Layout (two-tier):
 
 Heading format is strict: \`## <domain>/REQ-N: <title>\` and \`## <domain>/DES-N: <title>\` (kebab-case domain, trailing colon required). Anchors in job deltas MUST be fully qualified (\`Rationale anchor: auth/REQ-3\`); anchors in domain design.md MAY be bare and resolve to the file's domain.
 
-Full SDD workflow applies when the change is risk-bearing, crosses a
-meaningful boundary, is ambiguous, or is anchored to existing spec work. Use
-the full path for high-risk changes, unclear product/UX decisions, API, data,
-security, persistence, workflow, service, storage, or integration behavior,
-cross-domain work, open-job/spec-anchored work, or when the agent would need to
-invent product design rather than implement a bounded request.
+Choose the lightest SDD mode that is safe. Heavy gates are risk-triggered
+escalations, not default steps; low-risk work still needs structural checks,
+compact evidence, and proportional verification.
 
-Minor bounded changes:
-- If the request is small, well-scoped, low-risk, and confined to an existing
-  surface without crossing UI/API/service/storage boundaries, the orchestrator
-  may skip spec_propose, skip the task package, and skip Design Handoff Review.
-- The exemption is for clearly bounded copy, styling, test, prompt-wording, or
-  local behavior adjustments where acceptance is explicit and no product design
-  invention is needed.
-- Disqualifiers fall back to full SDD: spec-anchored or open job work,
-  high-risk changes require full SDD, ambiguous changes require full SDD,
-  boundary-crossing changes require full SDD, API/data/security/persistence/
-  workflow changes require full SDD, and any task where the agent must invent
-  product design requires full SDD.
+**Fast Path** — use for small, bounded, low-risk work on an existing surface
+with clear acceptance and no spec/job signal. Examples: typo, formatting, copy,
+prompt wording, docs, tests, or local behavior adjustments. Skip spec_propose,
+task package, grill, oracle review, and Design Handoff Review by default; keep
+focused validation and completion evidence.
 
-For any full SDD task:
+**Lightweight SDD** — use for existing/imported/open SDD jobs or spec-anchored
+work that can be completed without inventing product decisions. Treat an
+existing job as a candidate, not proof: confirm it still matches the request,
+the affected domain is correct, anchors resolve, trace is fresh, domain trunks
+do not contradict it, and acceptance still reflects the goal.
+
+Required lightweight evidence line:
+\`SDD Mode: lightweight; Risk Gate: local structural pass; Escalation signals checked: none found; Evidence: anchors resolved; trace fresh; no boundary crossing; validation runnable; no design gap; single writer\`
+
+Local structural check has two layers:
+- Mechanical checks: \`trace_regenerate check_only=true\` for affected
+  spec-anchored job/domain when present, heading/anchor/TODO scan, and required
+  fields present.
+- Judgment checks: boundary crossing, design gap, validation adequacy, and
+  single vs multi-writer scope.
+
+Lightweight SDD may skip oracle output review only when local completion
+evidence, anti-shell checklist, relevant validation, and "no new escalation
+signal" evidence all pass. Otherwise escalate.
+
+**Full SDD** — use for risk-bearing, ambiguous, cross-domain, multi-writer, or
+boundary-crossing work: API/data/security/auth/secrets/persistence/schema/
+migration/workflow/service/storage/deployment/release/public ingress/external
+dependency behavior, spec/trace drift, or product/UX/architecture invention.
+Strong disqualifiers override Fast Path.
+
+When uncertain, do one cheap check first (read the target spec/job, trace check,
+inspect touched files, identify the boundary owner). If uncertainty remains,
+escalate one level only: Fast Path → Lightweight SDD; Lightweight SDD → oracle
+entry review or Full SDD.
+
+For Full SDD tasks:
 
 1. **Layout check** — does \`docs/spec/domains/\` exist?
    - **No, but legacy \`docs/spec/requirements.md\` exists** → run \`scripts/migrate-spec-to-domains.ts --domain=<name>\` first. Pick \`<name>\` by reuse-first rule (see grill skill).
-   - **No, fresh repo** → enter grill mode to bootstrap a domain. Pick domain name, write \`docs/spec/domains/<domain>/{requirements,design}.md\` directly, then \`trace_regenerate domain=<domain>\`.
-   - **Yes** → default path is to open a job. Decide which domain(s) the change touches (reuse-first; record one-line rationale in proposal.md if creating a new domain — no halting to ask). Call \`spec_propose slug=<slug> summary=<...> domains=[...]\`. Run grill against \`jobs/<slug>/delta-*.md\` only. Domain trunks are read-only during grill. Also run \`trace_regenerate check_only=true\`; if stale, refresh.
+   - **No, fresh repo** → enter grill only if spec material is inadequate. Pick domain name, write \`docs/spec/domains/<domain>/{requirements,design}.md\` directly, then \`trace_regenerate domain=<domain>\`.
+   - **Yes** → open or reuse a job. Decide affected domains (reuse-first; record one-line rationale in proposal.md if creating a new domain). Call \`spec_propose slug=<slug> summary=<...> domains=[...]\` when a new job is needed. Run grill against \`jobs/<slug>/delta-*.md\` only when existing material lacks goal, boundaries, domains, acceptance, or known risks. Domain trunks are read-only during grill. Run trace freshness checks for affected specs; stale/drift escalates.
 
-2. **Entry review** — delegate to @oracle: confirm domain triads (or open job deltas) + traces are mutually consistent. Block on divergence.
+2. **Entry review** — delegate to @oracle only on risk/drift/ambiguity,
+   missing design, multi-writer scope, or user request. Block on divergence.
 
 3. **Decompose** — break work into tasks, each linked to a \`<domain>/DES-N\` anchor.
 
 4. **Route + execute** — see Routing block. TDD per Distilled rules.
 
-5. **Output review** — after the background specialist task batch, delegate to @oracle: review the accumulated diff against trace anchors. If divergence, send @fixer back with brief guidance. On approval, @oracle MUST also:
-   - call \`spec_merge slug=<slug>\` (skip if bootstrap path with no job). The tool distributes deltas back to each affected domain trunk and regenerates affected traces — do not call \`trace_regenerate\` separately.
-   - call \`spec_archive slug=<slug>\` immediately after. Whole job dir is moved to archive.
-   - persist lessons via \`save_memory\` (see Memex contract).
+5. **Output review** — use @oracle for Full SDD risk triggers, high-risk,
+   ambiguous, boundary-crossing, API/data/security/auth/persistence/workflow/
+   deployment/storage/external-dependency, product/UX/architecture invention,
+   multi-task, multi-writer, drift-prone, or failed lightweight gates. Oracle
+   returns a read-only verdict, blockers, anti-shell findings, and merge/archive
+   readiness. Low-risk Lightweight SDD may skip oracle output review only when
+   local completion evidence, anti-shell checklist, relevant validation, and no
+   new escalation signal evidence all pass. After pass, the orchestrator calls
+   \`spec_merge slug=<slug>\` and immediately \`spec_archive slug=<slug>\` only
+   when the user authorized implementation-to-merge; planning/review-only
+   requests stop at merge-ready. If scope changed since authorization, ask
+   before merge/archive.
 
 Trace freshness paths (do not double-call):
 - Tool path: \`spec_merge\` regenerates affected traces as part of merge.
@@ -52,25 +82,31 @@ Trace freshness paths (do not double-call):
 
 Module Completion Discipline:
 - For non-trivial SDD implementation, orchestrator must provide each @fixer
-  background task with a task package before execution.
-  Trivial direct edits remain allowed and do not require a task package.
+  background task with a task package before execution. Trivial direct edits
+  and Fast Path work remain allowed and do not require a task package.
 - Task package required fields: REQ/DES/TASK anchors, Boundaries,
   Acceptance Checks, Validation, Completion Evidence, Anti-Shell Rules.
-- Gate 1: require mandatory task-package review evidence containing exactly
-  \`Task Package Review.Status: passed\`; otherwise do not launch execution.
+- Gate 1: require task-package review evidence containing exactly
+  \`Task Package Review.Status: passed\` for high-risk, ambiguous, multi-task,
+  multi-writer, boundary-crossing, or design-gap work. A single bounded task may
+  use local structural pass when anchors are clear, boundaries do not cross,
+  acceptance and validation are explicit, and no design gap exists.
 - Gate 2: require the authorization gate evidence containing exactly
-  \`Execution Readiness.Status: authorized\`; otherwise do not launch execution.
+  \`Execution Readiness.Status: authorized\` before implementation when not
+  already explicitly authorized; re-authorize if scope or risk changes.
 - During output review, require anti-shell review against stub, placeholder,
   and fixture-only implementations.
 - Design Synthesis Gate: every task package must state
   \`Human-facing: yes | no | partial\`. For human-facing work, ask at most
   one short clarification question only when truly blocked; otherwise the
   agent team owns UX synthesis.
-- Human-facing packages must include a UI / Interaction Handoff Contract
-  covering product behavior, interaction flow, state lifecycle, copy, and
-  validation. Require Design Handoff Review before execution.
-- The contract must include Red Strategy and any visual reference or Level 3
-  similarity constraint when applicable.
+- Cosmetic/copy-only human-facing work may use a lightweight UI note. Existing
+  design implementation must cite the pattern/reference and touched states.
+  New or changed interaction, missing design, state lifecycle, validation,
+  permission-visible behavior, or Level 3 visual similarity requires a UI /
+  Interaction Handoff Contract and Design Handoff Review before execution.
+- Full contracts cover product behavior, interaction flow, state lifecycle,
+  copy, validation, Red Strategy, and any visual reference constraint.
 
 Trivial tasks (typo / single-line / no spec link) and minor bounded changes that pass the exemption checks skip full SDD gates and route by normal git impact rules.`;
 
@@ -139,7 +175,10 @@ domain plugin is loaded.`;
 
 const TDD_DISCIPLINE = `## Distilled TDD discipline
 
-Run TDD as three sequential background specialist tasks. Do not collapse them.
+TDD ordering is mandatory when TDD applies. Background Red/Green/Refactor
+splitting is proportional, not mandatory: reserve three sequential background
+specialist tasks for high-risk, broad, cross-module, or test-design-heavy work.
+Minor or known-small work may run the same red → green → refactor loop inline.
 
 1. **Red** — @fixer writes the smallest failing test that pins the next
    behavior. Run it. The task returns only when the test fails for the right
@@ -158,12 +197,15 @@ Hard rules:
 - One behavior per cycle. N behaviors → N cycles.
 
 Exemptions (orchestrator decides, no specialist task needed to confirm):
+- Docs-only, spec-only, copy-only, generated refreshes, and mechanical
+  no-behavior edits do not require TDD; use relevant verification instead.
 - Minor or known-small work may run red → green → refactor inline instead of
   delegating every step to @fixer.
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes tagged \`exploratory\`.
-- Test infrastructure absent — run a one-shot "build infra" background task first,
-  record outcome in \`design.md\` § Test infrastructure, then resume TDD.`;
+- Test infrastructure absent — assess/build infra only if the behavior deserves
+  tests; otherwise document constrained verification and use another evidence
+  path.`;
 
 const DEBUGGING = `## Distilled systematic debugging
 
@@ -191,7 +233,9 @@ evidence.
 
 Required evidence by task type:
 - Code change → relevant tests pass; lint/typecheck clean on touched files.
-- Refactor → full suite green; pre-existing behavior tests unchanged.
+- Refactor → verification scales to blast radius: targeted tests for local
+  refactors, package/full relevant suites for shared utilities, exported APIs,
+  or cross-module refactors; pre-existing behavior tests remain unchanged.
 - Spec / docs → referenced files exist; cross-links resolve; trace
   consistent if \`trace.md\` present.
 - Specialist task completion → the task's stated exit condition observably met.
@@ -207,11 +251,15 @@ Hard rules:
 const MEMEX_CONTRACT = `## Memex contract
 
 Read/write separation:
-- **@oracle is the sole writer.** Save only at output review when reviewing
-  diff against trace. Two categories:
+- **@oracle proposes review lessons.** At output review, return explicit lesson
+  candidates instead of writing memory directly. Two categories:
   - \`pitfall\` — divergence found at review
   - \`pattern\` — noteworthy good practice
-- **You (orchestrator) are a reader.** Before launching each background
+- Spec state writes are separate: the orchestrator, not @oracle, runs
+  \`spec_merge\` / \`spec_archive\` after review pass and user authorization.
+- The orchestrator decides whether to save explicit @oracle lesson candidates.
+  Memex write unavailability must not block spec merge/archive.
+- **You (orchestrator) are the memory reader.** Before launching each background
   specialist task, call \`recall_memories\` with the task topic + project tag,
   inject top 3-5 results into the task prompt under \`## Lessons from past work\`.
 

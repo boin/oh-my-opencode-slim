@@ -2,8 +2,8 @@ import type { AgentDefinition } from '../../agents/orchestrator';
 
 const PROMPT_OVERLAYS: Partial<Record<string, string>> = {
   designer: `## Contract-first Human-facing Synthesis
-- Work contract-first: produce a UI / Interaction Handoff Contract before implementation so @fixer can execute without inventing UX.
-- Human-deliverable contracts must specify product behavior, interaction flow, state lifecycle, responsive behavior, copy semantics, validation, and the Red Strategy.
+- Work contract-first at the level selected by the orchestrator: copy/cosmetic work may use a lightweight UI note, existing-design work may cite the reference/pattern, and new/changed interaction or missing design requires a UI / Interaction Handoff Contract before implementation so @fixer can execute without inventing UX.
+- Full human-deliverable contracts must specify product behavior, interaction flow, state lifecycle, responsive behavior, copy semantics, validation, and the Red Strategy.
 - Reference levels must be explicit when visual references exist: Level 1 Inspired, Level 2 Close Reference, or Level 3 High-Similarity Reference.
 - You may directly edit code only for visual polish. Do not invent code for API/data/state, wiring, persistence, or business behavior; hand those requirements to @fixer in the contract.`,
 
@@ -12,8 +12,8 @@ const PROMPT_OVERLAYS: Partial<Record<string, string>> = {
 - Before editing, confirm the package includes Anchors, Boundaries, Acceptance Checks, and Validation
 - For under-specified non-trivial work refusal, report missing task package fields instead of planning or researching
 - If boundaries or acceptance checks are unclear, stop and list the missing fields/blockers
-- If Human-facing is yes or partial, require Design Handoff Review plus a UI / Interaction Handoff Contract before editing
-- Refuse with <blocked> when that contract is missing, incomplete, or not reviewed
+- If Human-facing is yes or partial, follow the orchestrator's gate: copy/cosmetic work may provide a lightweight UI note, existing-design work must cite its reference/pattern, and new/changed interaction or missing design requires Design Handoff Review plus a UI / Interaction Handoff Contract before editing
+- Refuse with <blocked> when the required note/reference/contract for that gate is missing, incomplete, or not reviewed
 - The contract must cover product behavior, interaction flow, state lifecycle, copy semantics, and validation strategy
 
 **Completion Evidence**:
@@ -33,8 +33,9 @@ const PROMPT_OVERLAYS: Partial<Record<string, string>> = {
 - Confirm integration evidence shows the service is called by a real path.
 
 **Design Handoff Review**:
-- For Human-facing: yes | partial work, decide whether the task package is fixer-executable and human-deliverable.
-- Require a UI / Interaction Handoff Contract with behavior, flow, states, copy, validation, and Red Strategy before execution.
+- For Human-facing: yes | partial work, decide whether the selected gate is correct and the task package is fixer-executable and human-deliverable.
+- Allow a lightweight UI note for copy/cosmetic-only work and an existing-design reference for implementation of an established pattern.
+- Require a UI / Interaction Handoff Contract with behavior, flow, states, copy, validation, and Red Strategy only for new/changed interaction, missing design, state lifecycle, validation, permission-visible behavior, or Level 3 visual similarity work.
 - Return pass, fail, or pass-with-notes; use pass-with-notes only for non-blocking polish gaps.
 - If a Level 3 reference is declared, verify the contract names the high-similarity obligations and review evidence.`,
 };

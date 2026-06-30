@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+  allowDurablePlanSaveInPlanMode,
   createPlanIntentHandoffHook,
   createPlannerBridgeCommandManager,
   createPlannerBridgeTools,
@@ -95,6 +96,9 @@ describe('createPlannerBridgeCommandManager', () => {
       { template: string; description: string }
     >;
     expect(commands['plan-save'].template).toContain('plan_save');
+    expect(commands['plan-save'].template).toContain('Plan Mode exception');
+    expect(commands['plan-save'].template).toContain('mutating bash');
+    expect(commands['plan-save'].template).toContain('plan_to_sdd');
     expect(commands['plan-save'].template).toContain(
       'Do NOT call any external planner plugin',
     );
@@ -104,6 +108,9 @@ describe('createPlannerBridgeCommandManager', () => {
     expect(commands['plan-finish'].template).toContain('plan_finish');
     expect(commands['plan-to-sdd'].template).toContain('plan_to_sdd');
     expect(commands['plan-to-sdd'].template).toContain('confirm_import=true');
+    expect(commands['plan-to-sdd'].template).toContain(
+      'continue by inspecting the generated docs/spec/jobs/<slug>/ job',
+    );
     expect(commands['sdd-plan-detect'].template).toContain('sdd_plan_detect');
     expect(commands['sdd-plan-detect'].template).toContain(
       'Do NOT call sdd_from_plan',
@@ -117,7 +124,7 @@ describe('createPlannerBridgeCommandManager', () => {
       'path, optional slug, and optional domain',
     );
     expect(commands['sdd-from-plan'].template).toContain(
-      'Return the tool output verbatim',
+      'continue by inspecting the generated docs/spec/jobs/<slug>/ job',
     );
   });
 
@@ -147,6 +154,58 @@ describe('createPlannerBridgeCommandManager', () => {
 
     expect(read).toContain(`Plan path: ${planPath}`);
     expect(read).toContain('Goal: keep a recoverable plan on disk.');
+  });
+
+  test('plan_save allows explicit root plan-looking paths', async () => {
+    const root = makeTempProject();
+    const tools = createPlannerBridgeTools(createContext(root), {
+      now: () => new Date('2026-06-29T12:00:00.000Z'),
+      homeDir: path.join(root, 'home'),
+    });
+
+    const saved = await tools.plan_save.execute(
+      {
+        path: 'plan.md',
+        title: 'Root Plan',
+        content: 'Goal: save a safe root-level durable plan.',
+      },
+      { sessionID: 'ses_root' } as any,
+    );
+
+    expect(saved).toContain(`Plan saved: ${path.join(root, 'plan.md')}`);
+    expect(fs.existsSync(path.join(root, 'plan.md'))).toBe(true);
+  });
+
+  test('plan_save refuses unsafe explicit markdown paths', async () => {
+    const root = makeTempProject();
+    const tools = createPlannerBridgeTools(createContext(root), {
+      now: () => new Date('2026-06-29T12:00:00.000Z'),
+      homeDir: path.join(root, 'home'),
+    });
+
+    const unsafe = await tools.plan_save.execute(
+      {
+        path: 'docs/notes.md',
+        title: 'Unsafe Plan',
+        content: 'Goal: this should not be written.',
+      },
+      { sessionID: 'ses_unsafe' } as any,
+    );
+    const archive = await tools.plan_save.execute(
+      {
+        path: '.opencode/plans/archive/old-plan.md',
+        title: 'Archive Plan',
+        content: 'Goal: this should not be written either.',
+      },
+      { sessionID: 'ses_archive' } as any,
+    );
+
+    expect(unsafe).toContain('Refused: explicit plan_save path');
+    expect(archive).toContain('Refused: explicit plan_save path');
+    expect(fs.existsSync(path.join(root, 'docs', 'notes.md'))).toBe(false);
+    expect(
+      fs.existsSync(path.join(root, '.opencode', 'plans', 'archive')),
+    ).toBe(false);
   });
 
   test('plan_list detects durable local markdown plans without writes', async () => {
@@ -195,6 +254,8 @@ describe('createPlannerBridgeCommandManager', () => {
     expect(text).toContain(
       'imported into docs/spec/jobs/current-session-plan/',
     );
+    expect(text).toContain('Next action: continue native SDD preparation');
+    expect(text).toContain('replacing imported placeholders');
     const jobDir = path.join(
       root,
       'docs',
@@ -234,6 +295,8 @@ describe('createPlannerBridgeCommandManager', () => {
 
     expect(text).toContain('Decision: direct-execution');
     expect(text).toContain('plan_finish');
+    expect(text).toContain('Next after leaving Plan Mode:');
+    expect(text).toContain('Do not run this from the current Plan Mode turn.');
   });
 
   test('plan_ready decides SDD for API and persistence plans', async () => {
@@ -257,6 +320,8 @@ describe('createPlannerBridgeCommandManager', () => {
 
     expect(text).toContain('Decision: needs-sdd');
     expect(text).toContain('/plan-to-sdd');
+    expect(text).toContain('Next after leaving Plan Mode:');
+    expect(text).toContain('Do not run this from the current Plan Mode turn.');
   });
 
   test('plan_finish archives an active plan as executing', async () => {
@@ -311,6 +376,112 @@ describe('createPlannerBridgeCommandManager', () => {
     );
   });
 
+  test('natural plan authoring intent injects plan_save guidance without existing plan', () => {
+    const root = makeTempProject();
+    const hook = createPlanIntentHandoffHook(createContext(root));
+    const messages = [
+      {
+        info: { role: 'user', agent: 'orchestrator', sessionID: 'ses_author' },
+        parts: [{ type: 'text', text: '做个计划' }],
+      },
+    ];
+
+    hook.handleMessagesTransform({ messages });
+
+    const text = messages[0].parts.map((part) => part.text).join('\n');
+    expect(text).toContain('plan_save');
+    expect(text).toContain('Do not implement');
+  });
+
+  test('natural readiness intent injects plan_ready guidance without existing plan', () => {
+    const root = makeTempProject();
+    const hook = createPlanIntentHandoffHook(createContext(root));
+    const messages = [
+      {
+        info: { role: 'user', agent: 'orchestrator', sessionID: 'ses_ready' },
+        parts: [{ type: 'text', text: '差不多了' }],
+      },
+    ];
+
+    hook.handleMessagesTransform({ messages });
+
+    const text = messages[0].parts.map((part) => part.text).join('\n');
+    expect(text).toContain('plan_ready first');
+    expect(text).toContain('save that content with plan_save first');
+    expect(text).toContain('Do not implement');
+  });
+
+  test('Plan Mode policy helper normalizes absolute write bans', () => {
+    const system = [
+      'You are in Plan Mode. Do not write files. ZERO exceptions.',
+    ];
+
+    allowDurablePlanSaveInPlanMode(system);
+
+    const text = system.join('\n');
+    expect(text).not.toContain('ZERO exceptions');
+    expect(text).not.toContain('Do not write files. ZERO exceptions');
+    expect(text).toContain('plan_save tool');
+    expect(text).toContain('except durable markdown plans via plan_save');
+    expect(text).toContain('only durable-plan write allowed');
+    expect(text).toContain('Do not use edit, write, apply_patch');
+    expect(text).toContain('plan_to_sdd');
+    expect(text).toContain('sdd_from_plan');
+  });
+
+  test('Plan Mode policy helper normalizes full host reminder fixture', () => {
+    const system = [
+      [
+        '<system-reminder>',
+        'You are in Plan Mode. The user has explicitly requested planning only.',
+        'STRICTLY FORBIDDEN: ANY file edits, modifications, or system changes.',
+        'ABSOLUTE CONSTRAINT: No file writes.',
+        'You may inspect files, search, and discuss the plan, but do not write files.',
+        'ZERO exceptions.',
+        '</system-reminder>',
+      ].join('\n'),
+    ];
+
+    allowDurablePlanSaveInPlanMode(system);
+    allowDurablePlanSaveInPlanMode(system);
+
+    const text = system.join('\n');
+    expect(text).not.toContain('STRICTLY FORBIDDEN: ANY file edits');
+    expect(text).not.toContain('ABSOLUTE CONSTRAINT: No file writes');
+    expect(text).not.toContain('ZERO exceptions');
+    expect(text).not.toContain('do not write files.');
+    expect(text).toContain(
+      'STRICTLY FORBIDDEN for non-plan changes: any file edits',
+    );
+    expect(text).toContain('ABSOLUTE CONSTRAINT for non-plan changes');
+    expect(text).toContain('plan_save tool is the only durable-plan write');
+    expect(text).toContain('Do not use edit, write, apply_patch');
+    expect(text).toContain('plan_to_sdd');
+    expect(text).toContain('sdd_from_plan');
+    expect(text.match(/Fork-local durable Plan Mode policy/g)?.length).toBe(1);
+    expect(text.match(/Single exception:/g)?.length).toBe(1);
+  });
+
+  test('Plan Mode policy helper is idempotent and ignores non-Plan Mode', () => {
+    const system = ['You are in Plan Mode. No tools that write files.'];
+    const nonPlanMode = ['Normal system reminder. Do not write files.'];
+
+    allowDurablePlanSaveInPlanMode(system);
+    allowDurablePlanSaveInPlanMode(system);
+    allowDurablePlanSaveInPlanMode(nonPlanMode);
+
+    const text = system.join('\n');
+    expect(text.match(/Fork-local durable Plan Mode policy/g)?.length).toBe(1);
+    expect(
+      text.match(/except plan_save for durable markdown plans/g)?.length,
+    ).toBe(1);
+    expect(text).not.toContain('No tools that write files.');
+    expect(text).toContain('except plan_save for durable markdown plans');
+    expect(nonPlanMode).toEqual([
+      'Normal system reminder. Do not write files.',
+    ]);
+  });
+
   test('explicit import creates native SDD job with metadata and pending gates', async () => {
     const root = makeTempProject();
     const { file, hash } = writePlan(root);
@@ -325,6 +496,8 @@ describe('createPlannerBridgeCommandManager', () => {
     expect(text).toContain(hash);
     expect(text).toContain('Task Package Review.Status: pending');
     expect(text).toContain('Execution Readiness.Status: pending');
+    expect(text).toContain('Next action: continue native SDD preparation');
+    expect(text).toContain('Stop only for severe blockers');
 
     const jobDir = path.join(root, 'docs', 'spec', 'jobs', 'imported-bridge');
     expect(fs.existsSync(path.join(jobDir, 'proposal.md'))).toBe(true);

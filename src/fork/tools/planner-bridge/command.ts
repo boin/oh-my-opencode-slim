@@ -29,10 +29,24 @@ Usage:
 
 Instruction: write the current plan as markdown by calling the plan_save tool.
 Use the active conversation context as the source of truth for the plan content.
+Plan Mode exception: plan_save is the only durable-plan write allowed in Plan Mode.
+If --path is provided, it must be a durable plan-looking path: .opencode/plans/*.md
+(not archive) or a root-level plan filename such as plan.md, planning.md,
+implementation-plan.md, execution-plan.md, plan-*.md, or *-plan.md.
 Do NOT call any external planner plugin, browser UI, or external editor.
+Do NOT call edit, write, apply_patch, mutating bash, plan_to_sdd,
+sdd_from_plan, spec_* tools, commit, deploy, or implement code from this command.
 
 USER REQUEST:
 $ARGUMENTS`;
+
+const PLAN_MODE_POLICY_TEXT = [
+  'Fork-local durable Plan Mode policy:',
+  '- Plan Mode remains read-only; the plan_save tool is the only durable-plan write allowed.',
+  '- plan_save may only save markdown durable plans to its default session path, .opencode/plans/*.md (not archive), or root-level plan-looking filenames such as plan.md, planning.md, implementation-plan.md, execution-plan.md, plan-*.md, or *-plan.md.',
+  '- Do not use edit, write, apply_patch, mutating bash, plan_to_sdd, sdd_from_plan, spec_* tools, commits, deployments, or implementation while in Plan Mode.',
+  '- If the user asks to implement, import, commit, deploy, or mutate non-plan files, stay in planning/readiness only and ask for handoff outside Plan Mode.',
+].join('\n');
 
 const PLAN_READ_TEMPLATE = `Read the current durable markdown plan.
 
@@ -61,7 +75,7 @@ const PLAN_READY_TEMPLATE = `Check whether the current durable markdown plan is 
 Usage:
   /plan-ready [--auto] [--slug <slug>] [--domain <domain>]
 
-Mandatory instruction: call plan_ready with the parsed optional auto, slug, and domain fields. Return the tool output verbatim. If the result is direct-execution, do not import SDD; call plan_finish with status=executing before implementation starts. If the result is needs-sdd and auto=true, follow the tool output's next action.
+Mandatory instruction: call plan_ready with the parsed optional auto, slug, and domain fields. Return the tool output verbatim. Do not call plan_to_sdd or plan_finish from the current Plan Mode turn; the tool output describes the next action after leaving Plan Mode.
 
 USER REQUEST:
 $ARGUMENTS`;
@@ -81,7 +95,7 @@ const PLAN_TO_SDD_TEMPLATE = `Import a durable markdown plan into native SDD job
 Usage:
   /plan-to-sdd [path] [--slug <slug>] [--domain <domain>]
 
-Mandatory instruction: parse $ARGUMENTS into optional path, optional slug, and optional domain. The next tool call MUST be plan_to_sdd with confirm_import=true and those parsed fields. Return the tool output verbatim.
+Mandatory instruction: parse $ARGUMENTS into optional path, optional slug, and optional domain. The next tool call MUST be plan_to_sdd with confirm_import=true and those parsed fields. If the tool refuses, return that refusal verbatim. If the import succeeds, continue by inspecting the generated docs/spec/jobs/<slug>/ job, replacing imported placeholders with native SDD delta requirements/design/tasks, and running entry review. Do not start implementation, commit, deploy, merge, or archive from the import command alone.
 
 Do NOT call plan_list, sdd_plan_detect, read, grep, or any other tool before plan_to_sdd. Do NOT inspect candidates first. If the tool refuses, return that refusal verbatim.
 
@@ -104,7 +118,7 @@ const IMPORT_TEMPLATE = `Import an explicit markdown plan into native SDD jobs.
 Usage:
   /sdd-from-plan <path> [--slug <slug>] [--domain <domain>]
 
-Mandatory instruction: parse $ARGUMENTS into path, optional slug, and optional domain. The next tool call MUST be sdd_from_plan with confirm_import=true and those parsed fields. Return the tool output verbatim.
+Mandatory instruction: parse $ARGUMENTS into path, optional slug, and optional domain. The next tool call MUST be sdd_from_plan with confirm_import=true and those parsed fields. If the tool refuses, return that refusal verbatim. If the import succeeds, continue by inspecting the generated docs/spec/jobs/<slug>/ job, replacing imported placeholders with native SDD delta requirements/design/tasks, and running entry review. Do not start implementation, commit, deploy, merge, or archive from the import command alone.
 
 Do NOT call sdd_plan_detect, plan_list, read, grep, or any other tool before sdd_from_plan. Do NOT inspect candidates first. If the tool refuses, return that refusal verbatim.
 
@@ -594,6 +608,41 @@ function candidatePaths(root: string): string[] {
   return [...names].sort();
 }
 
+function isRootPlanFilename(name: string): boolean {
+  const base = name.toLowerCase();
+  return (
+    base === 'plan.md' ||
+    base === 'planning.md' ||
+    base === 'implementation-plan.md' ||
+    base === 'execution-plan.md' ||
+    /^plan[-_.].*\.md$/.test(base) ||
+    /[-_.]plan\.md$/.test(base)
+  );
+}
+
+function isSafeExplicitPlanPath(root: string, filePath: string): boolean {
+  const resolvedRoot = path.resolve(root);
+  const resolvedPath = path.resolve(filePath);
+  const activeDir = path.resolve(activePlansDir(root));
+  if (!resolvedPath.startsWith(`${resolvedRoot}${path.sep}`)) {
+    return false;
+  }
+  if (path.dirname(resolvedPath) === activeDir) {
+    return true;
+  }
+  return (
+    path.dirname(resolvedPath) === resolvedRoot &&
+    isRootPlanFilename(path.basename(resolvedPath))
+  );
+}
+
+function unsafePlanPathMessage(filePath: string): string {
+  return [
+    `Refused: explicit plan_save path is not a durable plan path ${filePath}`,
+    'Allowed paths: default session path, .opencode/plans/*.md (not archive), or root-level plan filenames such as plan.md, planning.md, implementation-plan.md, execution-plan.md, plan-*.md, or *-plan.md.',
+  ].join('\n');
+}
+
 function candidateSource(root: string, filePath: string): string {
   const normalized = path.resolve(filePath);
   if (normalized.startsWith(path.resolve(root))) {
@@ -676,6 +725,9 @@ function savePlan(
     : defaultPlanPath(runtime.root, input.sessionID);
   if (!isMarkdownFile(targetPath)) {
     return `Refused: expected a markdown plan path ${targetPath}`;
+  }
+  if (input.path && !isSafeExplicitPlanPath(runtime.root, targetPath)) {
+    return unsafePlanPathMessage(targetPath);
   }
   const markdown = ensurePlanMarkdown({
     content: input.content,
@@ -893,11 +945,13 @@ function readyPlan(
   ];
   if (decision === 'needs-sdd') {
     lines.push(
-      `- Next: run /plan-to-sdd --slug ${input.slug ?? safeSlug(firstHeading(plan.content))}${input.domain ? ` --domain ${input.domain}` : ''}`,
+      `- Next after leaving Plan Mode: run /plan-to-sdd --slug ${input.slug ?? safeSlug(firstHeading(plan.content))}${input.domain ? ` --domain ${input.domain}` : ''}`,
+      '- Do not run this from the current Plan Mode turn.',
     );
   } else {
     lines.push(
-      "- Next: call plan_finish(status='executing') before direct implementation.",
+      "- Next after leaving Plan Mode: call plan_finish(status='executing') before direct implementation.",
+      '- Do not run this from the current Plan Mode turn.',
     );
   }
   if (input.auto) {
@@ -1112,6 +1166,7 @@ function importPlan(
     archiveNotice ? `Plan archived: ${archiveNotice}` : undefined,
     'Native gates remain pending: Task Package Review.Status: pending; Execution Readiness.Status: pending.',
     'Upstream approval metadata is not native execution authorization.',
+    'Next action: continue native SDD preparation for this job by replacing imported placeholders with native delta requirements/design/tasks and running entry review. Stop only for severe blockers such as duplicate import refusal, missing job files, invalid spec layout, unsafe worktree conflicts, or failed entry review. Do not start implementation, commit, deploy, merge, or archive from this import alone.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -1524,6 +1579,18 @@ function isQuestionOrConditional(text: string): boolean {
   );
 }
 
+function isPlanAuthoringIntent(text: string): boolean {
+  return /^(做个计划|落个计划|写个计划|整理计划|保存计划|更新计划|把刚才讨论写进计划|make a plan|save (?:the )?plan|update (?:the )?plan)(\s|$|[，。！!])?/i.test(
+    text,
+  );
+}
+
+function isPlanReadinessIntent(text: string): boolean {
+  return /^(差不多了|方案(?:\s*OK| ok|就这样)|可以了|没问题|就按这个|准备开干|开干|开始落地|开始实现|开始执行|按这个做|就这么办|落地吧|go ahead|ship it|implement this)(\s|$|[，。！!])?/i.test(
+    text,
+  );
+}
+
 function classifyNaturalPlanIntent(text: string): string | undefined {
   const normalized = text.trim().replace(/\s+/g, ' ');
   if (
@@ -1533,11 +1600,10 @@ function classifyNaturalPlanIntent(text: string): string | undefined {
   ) {
     return undefined;
   }
-  if (
-    /^(开干|开始落地|开始实现|开始执行|按这个做|就这么办|落地吧|go ahead|ship it|implement this)(\s|$|[，。！!])?/i.test(
-      normalized,
-    )
-  ) {
+  if (isPlanAuthoringIntent(normalized)) {
+    return 'author-plan';
+  }
+  if (isPlanReadinessIntent(normalized)) {
     return 'start-implementation';
   }
   if (
@@ -1558,11 +1624,21 @@ function classifyNaturalPlanIntent(text: string): string | undefined {
 }
 
 function naturalPlanInstruction(intent: string): string {
+  if (intent === 'author-plan') {
+    return [
+      `${PLAN_AUTOMATION_MARKER} intent=author-plan</internal_reminder>`,
+      'The user asked to create, save, update, or maintain a durable markdown plan.',
+      'Stay in Plan Mode. Do not implement, import SDD, commit, deploy, or edit non-plan files.',
+      'Create or update the current-session durable plan with plan_save. If an existing current-session plan is available, read it first and merge rather than replacing unrelated content.',
+      'Use only plan_save for the durable-plan write; all other actions remain planning/read-only.',
+    ].join('\n');
+  }
   if (intent === 'start-implementation') {
     return [
       `${PLAN_AUTOMATION_MARKER} intent=start-implementation</internal_reminder>`,
-      'The user expressed a short implementation intent for the current durable plan.',
-      'Call plan_ready first. If it returns direct-execution, call plan_finish with status=executing before editing files. If it returns needs-sdd, import the plan into native SDD before execution. If it returns blocked, ask one clarification question.',
+      'The user expressed readiness/completion intent for the current durable plan.',
+      'Stay in readiness handoff. Call plan_ready first. If no current-session plan exists but the conversation contains enough plan content, save that content with plan_save first, then call plan_ready. If there is not enough plan content, ask exactly one clarification question.',
+      'Do not implement, import SDD, call plan_finish(status=executing), commit, deploy, or edit files from this Plan Mode turn.',
       'Always show a short Plan automation status block before continuing.',
     ].join('\n');
   }
@@ -1599,7 +1675,13 @@ export function createPlanIntentHandoffHook(
       const intent = classifyNaturalPlanIntent(text);
       if (!intent) return;
       const planPath = defaultPlanPath(runtime.root, sessionID);
-      if (!fs.existsSync(planPath)) return;
+      if (
+        intent !== 'author-plan' &&
+        intent !== 'start-implementation' &&
+        !fs.existsSync(planPath)
+      ) {
+        return;
+      }
       if (
         message.parts.some((part) =>
           part.text?.includes(PLAN_AUTOMATION_MARKER),
@@ -1612,6 +1694,70 @@ export function createPlanIntentHandoffHook(
       );
     },
   };
+}
+
+export function allowDurablePlanSaveInPlanMode(system: string[]): void {
+  if (!system.some((entry) => /plan mode/i.test(entry))) {
+    return;
+  }
+
+  for (let index = 0; index < system.length; index += 1) {
+    system[index] = normalizePlanModeReminder(system[index]);
+  }
+
+  if (
+    system.some((entry) =>
+      entry.includes('Fork-local durable Plan Mode policy'),
+    )
+  ) {
+    return;
+  }
+
+  system.push(PLAN_MODE_POLICY_TEXT);
+}
+
+function normalizePlanModeReminder(entry: string): string {
+  if (!/plan mode/i.test(entry)) {
+    return entry;
+  }
+
+  return entry
+    .replace(
+      /\bSTRICTLY FORBIDDEN\s*:?\s*ANY file edits, modifications, or system changes\b\.?/gi,
+      'STRICTLY FORBIDDEN for non-plan changes: any file edits, modifications, or system changes except durable markdown plan persistence via plan_save.',
+    )
+    .replace(
+      /\bANY file edits, modifications, or system changes\s+are\s+STRICTLY FORBIDDEN\b\.?/gi,
+      'Any non-plan file edits, modifications, or system changes remain STRICTLY FORBIDDEN; durable markdown plan persistence may use plan_save only.',
+    )
+    .replace(
+      /\bABSOLUTE CONSTRAINT\s*:?\s*(?:No|Do not perform|Do not make)\s+(?:ANY\s+)?(?:file edits, modifications, or system changes|file writes|file edits|system changes)\b\.?/gi,
+      'ABSOLUTE CONSTRAINT for non-plan changes: do not perform file edits, modifications, or system changes except durable markdown plan persistence via plan_save.',
+    )
+    .replace(
+      /\bZERO exceptions\b\.?/gi,
+      'Single exception: durable plan persistence may use plan_save only.',
+    )
+    .replace(
+      /\bANY file edits, modifications, or system changes\b(?! except| remain| via| outside)\.?/gi,
+      'Non-plan file edits, modifications, or system changes remain forbidden; durable markdown plan persistence may use plan_save only.',
+    )
+    .replace(
+      /\bDo not write files\b(?! except)\.?/gi,
+      'Do not write files except durable markdown plans via plan_save.',
+    )
+    .replace(
+      /\bNo file writes\b(?! except)\.?/gi,
+      'No file writes except durable markdown plans via plan_save.',
+    )
+    .replace(
+      /\bNo tools? that write files\b(?! except)\.?/gi,
+      'No tools that write files except plan_save for durable markdown plans.',
+    )
+    .replace(
+      /\bDo not use tools? that write files\b(?! except)\.?/gi,
+      'Do not use tools that write files except plan_save for durable markdown plans.',
+    );
 }
 
 export type PlannerBridgeCommandManager = ReturnType<

@@ -1,4 +1,5 @@
 export {
+  allowDurablePlanSaveInPlanMode,
   createPlanIntentHandoffHook,
   createPlannerBridgeCommandManager,
   createPlannerBridgeTools,

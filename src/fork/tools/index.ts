@@ -1,5 +1,6 @@
 export { createCodegraphCommandManager } from './codegraph';
 export {
+  allowDurablePlanSaveInPlanMode,
   createPlanIntentHandoffHook,
   createPlannerBridgeCommandManager,
   createPlannerBridgeTools,

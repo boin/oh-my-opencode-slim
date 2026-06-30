@@ -39,7 +39,10 @@ companion plugin. The minimal setup is just this plugin plus its normal
 Durable plan commands keep planning headless and recoverable:
 
 - `/plan-save` writes or replaces `.opencode/plans/<session-id>.md` unless a
-  path is provided.
+  safe durable-plan path is provided. In Plan Mode, `plan_save` is the only
+  write exception; explicit paths must be `.opencode/plans/*.md` (not archive)
+  or root-level plan-looking names such as `plan.md`, `planning.md`,
+  `implementation-plan.md`, `execution-plan.md`, `plan-*.md`, or `*-plan.md`.
 - `/plan-read` returns the current durable markdown plan.
 - `/plan-list` is read-only candidate detection for local markdown plans.
 - `/plan-ready` checks whether the current plan should enter native SDD or
@@ -48,10 +51,14 @@ Durable plan commands keep planning headless and recoverable:
 - `/plan-to-sdd [path]` imports the current or specified plan into
   `docs/spec/jobs/<slug>/`.
 
-Natural language shortcuts such as “开干”, “开始落地”, and “开始实现” are mapped to
-`plan_ready` only when a current-session plan exists and the message is a short
-imperative rather than a question. Side-effecting transitions are reported with a
-`Plan automation:` status block.
+Natural language shortcuts such as “做个计划”, “落个计划”, “更新计划”, and
+“save/update the plan” map to durable authoring guidance with `plan_save`.
+Readiness phrases such as “差不多了”, “就按这个”, “准备开干”, “go ahead”, and
+“ship it” map to `plan_ready`; if no current-session plan exists but the
+conversation has enough plan content, the agent should save first, then check
+readiness, otherwise ask one clarification. Side-effecting transitions are
+reported with a `Plan automation:` status block and Plan Mode still forbids
+non-plan edits, SDD import, commits, deployments, and implementation.
 
 Native SDD remains the execution authority:
 

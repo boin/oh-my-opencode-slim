@@ -51,7 +51,11 @@ The installer supports the following options:
 Durable planning is headless by default:
 
 - `/plan-save` writes or updates `.opencode/plans/<session-id>.md` unless an
-  explicit markdown path is provided.
+  explicit safe durable-plan path is provided. In Plan Mode, `plan_save` is the
+  only write exception; explicit paths must be `.opencode/plans/*.md` (not
+  archive) or root-level plan-looking filenames such as `plan.md`,
+  `planning.md`, `implementation-plan.md`, `execution-plan.md`, `plan-*.md`, or
+  `*-plan.md`.
 - `/plan-read` reads the current saved plan.
 - `/plan-list` reports local markdown plans and writes nothing.
 - `/plan-ready` checks whether the current plan should enter SDD or direct
@@ -63,6 +67,11 @@ Durable planning is headless by default:
 
 Once imported, the native SDD job becomes the source of truth for execution. The
 MVP never auto-executes saved, detected, or imported plans.
+
+Natural-language plan authoring phrases like “做个计划”, “保存计划”, or
+“save/update the plan” guide the agent to use `plan_save`. Readiness phrases
+like “差不多了”, “就按这个”, “go ahead”, or “ship it” guide the agent to run
+`plan_ready` without auto-implementing, importing, committing, or deploying.
 
 ### Background Subagents Environment Setup
 

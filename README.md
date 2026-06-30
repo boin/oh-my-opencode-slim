@@ -304,7 +304,11 @@ without any external planner runtime.
 Use durable plan commands explicitly:
 
 - `/plan-save` asks the agent to write or update the current markdown plan.
-  The default path is `.opencode/plans/<session-id>.md`.
+  The default path is `.opencode/plans/<session-id>.md`. In Plan Mode this is
+  the only allowed write, and explicit paths are limited to
+  `.opencode/plans/*.md` (not archive) or root-level plan filenames such as
+  `plan.md`, `planning.md`, `implementation-plan.md`, `execution-plan.md`,
+  `plan-*.md`, or `*-plan.md`.
 - `/plan-read` reads the current durable plan.
 - `/plan-list` lists local markdown plan candidates without writing files.
 - `/plan-ready` checks whether the current plan should go through native SDD or
@@ -315,11 +319,13 @@ Use durable plan commands explicitly:
   native `docs/spec/jobs/<slug>/` job.
 - `/sdd-from-plan <path>` remains available for explicit markdown imports.
 
-Short natural-language intents such as “开干”, “开始落地”, and “开始实现” trigger
-the same readiness handoff when a current-session durable plan exists. The hook
-does not edit code itself; it injects guidance for the Orchestrator to run
-`plan_ready`, then either import SDD or mark the plan `executing` before direct
-implementation.
+Short natural-language authoring intents such as “做个计划”, “落个计划”,
+“更新计划”, and “save/update the plan” trigger guidance to create or update the
+current-session durable plan with `plan_save`. Readiness phrases such as
+“差不多了”, “就按这个”, “准备开干”, “go ahead”, and “ship it” trigger `plan_ready`
+guidance; if no saved plan exists, the agent should save sufficient conversation
+plan content first or ask one clarification. These hooks do not edit code,
+import SDD, commit, deploy, or implement by themselves.
 
 After import, the native SDD job is the source of truth for execution. The MVP
 never auto-executes detected, saved, or imported plans.

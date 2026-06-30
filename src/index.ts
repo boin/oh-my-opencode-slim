@@ -19,6 +19,7 @@ import {
 import { CouncilManager } from './council';
 import { createTodoHygieneHook, createTraceFreshnessHook } from './fork/hooks';
 import {
+  allowDurablePlanSaveInPlanMode,
   createCodegraphCommandManager,
   createPlanIntentHandoffHook,
   createPlannerBridgeCommandManager,
@@ -1077,6 +1078,8 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
             (output.system[0] ? `\n\n${output.system[0]}` : '');
         }
       }
+
+      allowDurablePlanSaveInPlanMode(output.system);
 
       // Collapse to single system message for provider compatibility.
       // Some providers (e.g. Qwen via VLLM/DashScope) reject multiple

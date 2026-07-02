@@ -4,11 +4,42 @@ Source: hand-distilled from `superpowers` skills, optimized for Opus 4.7 as
 orchestrator. Compact principles + hard rules + exemptions. No checklists, no
 examples, no role-play scaffolding.
 
-Length budget: ≤200 lines total. Currently ~130 lines.
+Length budget: ≤210 lines total.
 
 These rules are injected via `orchestrator.customAppendPrompt`. Update them
 manually when upstream `superpowers` ships meaningful new discipline; do not
 runtime-load the plugin.
+
+---
+
+## Context inspection and mode selection
+
+Before choosing No SDD, Fast Path, Lightweight SDD, or Full SDD, gather
+classification-grade context: enough to decide what is being changed, why,
+scope, ambiguity, affected surfaces, reversibility, long-lived behavior impact,
+future-agent/session inheritance, permission/safety/write-side workflow risk,
+verification complexity, and availability and adequacy of existing roadmap,
+design, spec, plan, or discussion material.
+
+Do not choose mode from file type, repo emptiness, or keywords alone. For
+non-trivial tasks, emit one concise line before execution:
+
+```text
+Mode: No SDD | Fast Path | Lightweight SDD | Full SDD; Reason: <one sentence>; Evidence: <context inspected>
+```
+
+Use No SDD for informational, read-only, exploratory, debugging-only, or
+external research tasks when no durable implementation contract is needed. Use
+Fast Path only after inspection shows small, reversible, single-surface work
+with clear acceptance, no boundary crossing, and no high-risk durable contract
+change. Fast Path is disqualified by API/data/security/auth/secrets/persistence/
+schema/migration/deployment/public ingress/external dependency behavior,
+permission or workflow boundary changes, canonical policy/rule changes,
+multi-writer scope, or unclear rollback/acceptance. Use Lightweight SDD when
+existing material is adequate but the task needs durable boundaries/evidence or
+future-session rationale. Use Full SDD when inspected scope is broad, ambiguous,
+cross-surface, hard to reverse, inherited as canonical behavior, or needs
+reviewable acceptance design.
 
 ---
 
@@ -40,6 +71,9 @@ Hard rules:
 Exemptions (orchestrator decides, no specialist task needed to confirm):
 - Docs-only, spec-only, copy-only, generated refreshes, and mechanical
   no-behavior edits do not require TDD; use relevant verification instead.
+  Docs/prompt/rule/skill/template edits are exempt only when inspection shows
+  they do not change inherited behavior, routing, permissions, review gates,
+  delegation, safety boundaries, or executable workflows.
 - UI / visual polish where the spec is "looks right".
 - Throwaway prototypes explicitly tagged `exploratory`.
 - Test infrastructure absent — assess/build infra only if the behavior deserves

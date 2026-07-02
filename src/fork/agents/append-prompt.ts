@@ -7,21 +7,43 @@ Layout (two-tier):
 
 Heading format is strict: \`## <domain>/REQ-N: <title>\` and \`## <domain>/DES-N: <title>\` (kebab-case domain, trailing colon required). Anchors in job deltas MUST be fully qualified (\`Rationale anchor: auth/REQ-3\`); anchors in domain design.md MAY be bare and resolve to the file's domain.
 
+Before choosing No SDD / Fast Path / Lightweight SDD / Full SDD, gather
+classification-grade context: enough to decide what is being changed, why,
+scope, ambiguity, affected surfaces, reversibility, long-lived behavior impact,
+future-agent/session inheritance, permission/safety/write-side workflow risk,
+verification complexity, and availability and adequacy of existing roadmap,
+design, spec, plan, or discussion material. Do not choose mode from file type,
+repo emptiness, or keywords alone.
+
+For non-trivial tasks, emit one concise mode line before execution:
+\`Mode: No SDD | Fast Path | Lightweight SDD | Full SDD; Reason: <one sentence>; Evidence: <context inspected>\`.
+
 Choose the lightest SDD mode that is safe. Heavy gates are risk-triggered
 escalations, not default steps; low-risk work still needs structural checks,
 compact evidence, and proportional verification.
 
-**Fast Path** — use for small, bounded, low-risk work on an existing surface
-with clear acceptance and no spec/job signal. Examples: typo, formatting, copy,
-prompt wording, docs, tests, or local behavior adjustments. Skip spec_propose,
-task package, grill, oracle review, and Design Handoff Review by default; keep
-focused validation and completion evidence.
+**No SDD** — use for informational, read-only, exploratory, debugging-only, or
+external research tasks when no durable implementation contract is needed.
 
-**Lightweight SDD** — use for existing/imported/open SDD jobs or spec-anchored
-work that can be completed without inventing product decisions. Treat an
-existing job as a candidate, not proof: confirm it still matches the request,
-the affected domain is correct, anchors resolve, trace is fresh, domain trunks
-do not contradict it, and acceptance still reflects the goal.
+**Fast Path** — use after inspection shows small, bounded, low-risk,
+reversible, single-surface work with clear acceptance, no boundary crossing, no
+high-risk durable contract change, and no spec/job signal. Examples: typo,
+formatting, copy, tests, or local behavior adjustments. Skip spec_propose, task
+package, grill, oracle review, and Design Handoff Review by default; keep focused
+validation and completion evidence. Fast Path is disqualified by API/data/
+security/auth/secrets/persistence/schema/migration/deployment/public ingress/
+external dependency behavior, permission or workflow boundary changes, canonical
+policy/rule changes, multi-writer scope, or unclear rollback/acceptance.
+
+**Lightweight SDD** — use when inspection finds durable behavior, future-agent/
+session inheritance, multiple surfaces that must stay consistent, supplied
+roadmap/design/spec/discussion material that should become the execution
+boundary, acceptance requiring boundary/non-goal/rollback evidence, or a design
+rationale future sessions need — while existing material is adequate and the
+direction is bounded. Treat an existing job as a candidate, not proof: confirm it
+still matches the request, the affected domain is correct, anchors resolve,
+trace is fresh, domain trunks do not contradict it, and acceptance still reflects
+the goal.
 
 Required lightweight evidence line:
 \`SDD Mode: lightweight; Risk Gate: local structural pass; Escalation signals checked: none found; Evidence: anchors resolved; trace fresh; no boundary crossing; validation runnable; no design gap; single writer\`
@@ -37,11 +59,13 @@ Lightweight SDD may skip oracle output review only when local completion
 evidence, anti-shell checklist, relevant validation, and "no new escalation
 signal" evidence all pass. Otherwise escalate.
 
-**Full SDD** — use for risk-bearing, ambiguous, cross-domain, multi-writer, or
-boundary-crossing work: API/data/security/auth/secrets/persistence/schema/
-migration/workflow/service/storage/deployment/release/public ingress/external
-dependency behavior, spec/trace drift, or product/UX/architecture invention.
-Strong disqualifiers override Fast Path.
+**Full SDD** — use when inspection finds incomplete/inconsistent material,
+broad scope across durable surfaces/phases/modules/workflows, competing
+architecture/product/process options, unclear non-goals or rollback boundaries,
+permission/safety/write-side workflow/deployment/secrets/data responsibility
+changes, multiple writers, canonical policy/inherited behavior across repos or
+sessions, or validation that needs reviewable acceptance design. Strong
+disqualifiers override Fast Path.
 
 When uncertain, do one cheap check first (read the target spec/job, trace check,
 inspect touched files, identify the boundary owner). If uncertainty remains,
@@ -199,6 +223,9 @@ Hard rules:
 Exemptions (orchestrator decides, no specialist task needed to confirm):
 - Docs-only, spec-only, copy-only, generated refreshes, and mechanical
   no-behavior edits do not require TDD; use relevant verification instead.
+  Docs/prompt/rule/skill/template edits are exempt only when inspection shows
+  they do not change inherited behavior, routing, permissions, review gates,
+  delegation, safety boundaries, or executable workflows.
 - Minor or known-small work may run red → green → refactor inline instead of
   delegating every step to @fixer.
 - UI / visual polish where the spec is "looks right".

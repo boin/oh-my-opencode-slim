@@ -104,7 +104,7 @@ describe('append-prompt', () => {
 
     expect(block).toContain('Fast Path');
     expect(block).toMatch(/skip[^.]*spec_propose/i);
-    expect(block).toMatch(/skip[^.]*task package/i);
+    expect(block).toMatch(/skip[^.]*task\s+package/i);
     expect(block).toMatch(/skip[^.]*Design Handoff Review/i);
   });
 
@@ -115,13 +115,28 @@ describe('append-prompt', () => {
     expect(block).toContain('high-risk');
     expect(block).toContain('ambiguous');
     expect(block).toContain('boundary-crossing');
-    expect(block).toContain('Strong disqualifiers override Fast Path');
+    expect(block).toContain('disqualifiers override Fast Path');
   });
 
   test('does not hard-code all new behavior as full SDD', () => {
     const block = buildSddTddAppendBlock();
 
     expect(block).not.toContain('introduces new behavior');
+    expect(block).not.toContain('no new durable behavior');
+    expect(block).toContain('local behavior adjustments');
+    expect(block).toMatch(/no\s+high-risk durable contract change/);
+  });
+
+  test('keeps high-risk surfaces as Fast Path disqualifiers', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Fast Path is disqualified by');
+    expect(block).toContain('API/data/');
+    expect(block).toContain('security/auth/secrets/persistence/schema');
+    expect(block).toContain('permission or workflow boundary changes');
+    expect(block).toMatch(/canonical\s+policy\/rule changes/);
+    expect(block).toContain('multi-writer scope');
+    expect(block).toContain('unclear rollback/acceptance');
   });
 
   test('includes delegation budget and context preservation gate', () => {
@@ -147,8 +162,30 @@ describe('append-prompt', () => {
     expect(block).toContain('Risk Gate: local structural pass');
     expect(block).toContain('Mechanical checks');
     expect(block).toContain('Judgment checks');
-    expect(block).toContain('Strong disqualifiers override Fast Path');
+    expect(block).toContain('disqualifiers override Fast Path');
     expect(block).toContain('escalate one level only');
+  });
+
+  test('requires classification-grade context before mode selection', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('classification-grade context');
+    expect(block).toContain('Do not choose mode from file type');
+    expect(block).toContain(
+      'Mode: No SDD | Fast Path | Lightweight SDD | Full SDD',
+    );
+    expect(block).toContain('scope, ambiguity, affected surfaces');
+    expect(block).toContain('future-agent/session inheritance');
+    expect(block).toContain('availability and adequacy of existing roadmap');
+  });
+
+  test('keeps prompt and rule edits behavior-aware for TDD exemption', () => {
+    const block = buildSddTddAppendBlock();
+
+    expect(block).toContain('Docs/prompt/rule/skill/template edits');
+    expect(block).toContain('inherited behavior');
+    expect(block).toContain('routing, permissions, review gates');
+    expect(block).toContain('executable workflows');
   });
 
   test('keeps oracle review read-only and merge authorized by user', () => {
